@@ -60,7 +60,9 @@
             </div>
             <div class="form-field">
               <label for="job-time">Uhrzeit</label>
-              <input type="time" id="job-time" name="time" />
+              <select id="job-time" name="time">
+                <option value="">Ganztägig</option>
+              </select>
             </div>
             <div class="form-field">
               <label for="job-category">Arbeitsbereich</label>
@@ -94,6 +96,23 @@
               <label for="job-notes">Notizen</label>
               <textarea id="job-notes" name="notes" rows="3" placeholder="Zusätzliche Details"></textarea>
             </div>
+            <div class="form-field span-2 job-options">
+              <span class="label">Zusatzleistungen</span>
+              <div class="job-option-list">
+                <label class="checkbox">
+                  <input type="checkbox" id="job-hu-au" name="huAu" />
+                  <span>HU / AU</span>
+                </label>
+                <label class="checkbox">
+                  <input type="checkbox" id="job-car-care" name="carCare" />
+                  <span>Wagenpflege</span>
+                </label>
+                <label class="checkbox">
+                  <input type="checkbox" id="job-storage" name="storage" />
+                  <span>Einlagerung</span>
+                </label>
+              </div>
+            </div>
             <div class="form-field span-2">
               <label for="job-files">Dokumente &amp; Bilder</label>
               <input type="file" id="job-files" name="files" multiple />
@@ -111,19 +130,6 @@
             <button class="primary-button" type="submit">Speichern</button>
           </footer>
         </form>
-      </div>
-    </div>
-
-    <div id="detail-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content">
-        <header>
-          <h2>Auftragsdetails</h2>
-          <button class="icon-button" data-close-modal type="button">✕</button>
-        </header>
-        <div id="detail-content" class="detail-content"></div>
-        <footer class="modal-actions">
-          <button class="ghost-button" data-close-modal type="button">Schließen</button>
-        </footer>
       </div>
     </div>
 
@@ -153,16 +159,40 @@
 
     <template id="job-card-template">
       <article class="job-card">
-        <div class="job-card-header">
-          <h3 class="job-title"></h3>
-          <div class="status-toggle" role="button" tabindex="0" aria-label="Status wechseln"></div>
-        </div>
-        <p class="job-meta"></p>
+        <header class="job-card-header">
+          <div class="job-card-headline">
+            <h3 class="job-title"></h3>
+            <p class="job-time"></p>
+          </div>
+          <div class="job-card-controls">
+            <button class="status-toggle" role="button" tabindex="0" aria-label="Status wechseln"></button>
+            <button class="icon-button delete-job" type="button" aria-label="Auftrag löschen">✕</button>
+          </div>
+        </header>
+        <dl class="job-details">
+          <div class="job-detail">
+            <dt>Kunde</dt>
+            <dd class="job-customer"></dd>
+          </div>
+          <div class="job-detail">
+            <dt>Kontakt</dt>
+            <dd class="job-contact"></dd>
+          </div>
+          <div class="job-detail">
+            <dt>Fahrzeug</dt>
+            <dd class="job-vehicle"></dd>
+          </div>
+          <div class="job-detail">
+            <dt>Kennzeichen</dt>
+            <dd class="job-license"></dd>
+          </div>
+        </dl>
+        <div class="job-flags" hidden></div>
         <p class="job-notes"></p>
-        <footer>
-          <button class="ghost-button small" data-action="details" type="button">Details</button>
-          <button class="ghost-button small" data-action="clipboard" type="button">Zum Clipboard</button>
-        </footer>
+        <div class="job-attachments" hidden>
+          <span class="label">Anhänge</span>
+          <div class="job-attachment-list"></div>
+        </div>
       </article>
     </template>
 

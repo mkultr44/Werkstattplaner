@@ -21,19 +21,22 @@ const CATEGORY_CONFIG = {
 };
 
 const CATEGORY_ORDER = Object.keys(CATEGORY_CONFIG);
+const JOB_FLAG_CONFIG = [
+  { key: 'huAu', label: 'HU/AU' },
+  { key: 'carCare', label: 'Wagenpflege' },
+  { key: 'storage', label: 'Einlagerung' },
+];
 
 const dayView = document.getElementById('day-view');
 const weekView = document.getElementById('week-view');
 const selectedDateLabel = document.getElementById('selected-date-label');
 const jobModal = document.getElementById('job-modal');
-const detailModal = document.getElementById('detail-modal');
 const clipboardModal = document.getElementById('clipboard-modal');
 const jobForm = document.getElementById('job-form');
 const clipboardForm = document.getElementById('clipboard-form');
 const fileInput = document.getElementById('job-files');
 const filePreview = document.getElementById('file-preview');
 const modalTitle = document.getElementById('modal-title');
-const detailContent = document.getElementById('detail-content');
 const clipboardList = document.getElementById('clipboard-list');
 
 const state = {
@@ -45,6 +48,7 @@ const state = {
 let currentDate = new Date();
 let editingJobId = null;
 let editingJobSnapshot = null;
+let activeView = 'day';
 
 const api = {
   listJobs: () => apiRequest('/api/jobs'),
@@ -113,12 +117,13 @@ function bindUI() {
   jobForm.addEventListener('submit', handleJobSubmit);
   clipboardForm.addEventListener('submit', handleClipboardSubmit);
   fileInput.addEventListener('change', handleFileInput);
+  populateTimeOptions(jobForm.elements.time);
 
   document.querySelectorAll('[data-close-modal]').forEach((button) => {
     button.addEventListener('click', closeModals);
   });
 
-  [jobModal, detailModal, clipboardModal].forEach((modal) => {
+  [jobModal, clipboardModal].forEach((modal) => {
     modal.addEventListener('click', (event) => {
       if (event.target === modal) closeModals();
     });
@@ -133,12 +138,29 @@ function render() {
 }
 
 function renderHeader() {
-  selectedDateLabel.textContent = currentDate.toLocaleDateString('de-DE', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  if (activeView === 'week') {
+    const start = getMonday(currentDate);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    const weekNumber = getIsoWeekNumber(start);
+    const startLabel = start.toLocaleDateString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+    });
+    const endLabel = end.toLocaleDateString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+    selectedDateLabel.textContent = `KW ${weekNumber} · ${startLabel} – ${endLabel}`;
+  } else {
+    selectedDateLabel.textContent = currentDate.toLocaleDateString('de-DE', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  }
 }
 
 function renderDayView() {
@@ -192,79 +214,168 @@ function renderDayView() {
 
 function renderWeekView() {
   const startOfWeek = getMonday(currentDate);
-  const weekRow = document.createElement('div');
-  weekRow.className = 'week-row';
+  const weekLayout = document.createElement('div');
+  weekLayout.className = 'week-layout';
 
-  for (let i = 0; i < 7; i++) {
-    const day = new Date(startOfWeek);
-    day.setDate(startOfWeek.getDate() + i);
-
-    const weekDay = document.createElement('section');
-    weekDay.className = 'week-day';
+  CATEGORY_ORDER.forEach((category) => {
+    const config = CATEGORY_CONFIG[category];
+    const column = document.createElement('section');
+    column.className = 'week-category';
 
     const header = document.createElement('header');
-    const title = document.createElement('h3');
-    title.textContent = day.toLocaleDateString('de-DE', { weekday: 'short' });
-    const label = document.createElement('small');
-    label.textContent = day.toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-    });
+    header.className = 'week-category-header';
 
-    const addButton = document.createElement('button');
-    addButton.className = 'ghost-button small';
-    addButton.type = 'button';
-    addButton.textContent = '+';
-    addButton.addEventListener('click', () => openJobModal({ date: formatDateInput(day) }));
+    const title = document.createElement('h3');
+    title.textContent = config.title;
+
+    const description = document.createElement('small');
+    description.textContent = config.description;
 
     header.appendChild(title);
-    header.appendChild(label);
-    header.appendChild(addButton);
+    header.appendChild(description);
+    column.appendChild(header);
 
-    const weekColumns = document.createElement('div');
-    weekColumns.className = 'week-columns';
+    const dayList = document.createElement('div');
+    dayList.className = 'week-day-list';
 
-    CATEGORY_ORDER.forEach((category) => {
-      const config = CATEGORY_CONFIG[category];
-      const column = document.createElement('div');
-      column.className = 'week-column';
-      if (!isCategoryAvailable(category, day)) column.classList.add('disabled');
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(startOfWeek);
+      day.setDate(startOfWeek.getDate() + i);
 
-      const columnTitle = document.createElement('h4');
-      columnTitle.textContent = config.title;
-      column.appendChild(columnTitle);
+      const dayBlock = document.createElement('article');
+      dayBlock.className = 'week-day-block';
+      const available = isCategoryAvailable(category, day);
+      if (!available) dayBlock.classList.add('disabled');
+
+      const dayHeader = document.createElement('div');
+      dayHeader.className = 'week-day-header';
+
+      const dayLabel = document.createElement('h4');
+      dayLabel.textContent = day.toLocaleDateString('de-DE', { weekday: 'short' });
+
+      const dateLabel = document.createElement('span');
+      dateLabel.textContent = day.toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+      });
+
+      const addButton = document.createElement('button');
+      addButton.type = 'button';
+      addButton.className = 'ghost-button small add-week-job';
+      addButton.textContent = '+';
+      addButton.disabled = !available;
+      addButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        openJobModal({ date: formatDateInput(day), category });
+      });
+
+      dayHeader.appendChild(dayLabel);
+      dayHeader.appendChild(dateLabel);
+      dayHeader.appendChild(addButton);
+
+      const jobList = document.createElement('div');
+      jobList.className = 'week-job-list';
 
       const jobs = getJobsForDay(day, category);
-
       if (!jobs.length) {
         const empty = document.createElement('div');
         empty.className = 'empty-state';
-        empty.textContent = 'Keine Aufträge';
-        column.appendChild(empty);
+        empty.textContent = available ? 'Keine Aufträge' : 'Nicht verfügbar';
+        jobList.appendChild(empty);
       } else {
-        jobs.forEach((job) => {
-          const jobElement = document.createElement('div');
-          jobElement.className = 'week-job';
-          jobElement.innerHTML = `
-            <strong>${job.title}</strong>
-            <span>${job.time || 'Ganztägig'}</span>
-            <span>${job.customer || 'Kunde unbekannt'}</span>
-          `;
-          jobElement.addEventListener('click', () => openDetailModal(job));
-          column.appendChild(jobElement);
-        });
+        jobs.forEach((job) => jobList.appendChild(createWeekJob(job)));
       }
 
-      weekColumns.appendChild(column);
-    });
+      dayBlock.appendChild(dayHeader);
+      dayBlock.appendChild(jobList);
+      dayList.appendChild(dayBlock);
+    }
 
-    weekDay.appendChild(header);
-    weekDay.appendChild(weekColumns);
-    weekRow.appendChild(weekDay);
-  }
+    column.appendChild(dayList);
+    weekLayout.appendChild(column);
+  });
 
   weekView.innerHTML = '';
-  weekView.appendChild(weekRow);
+  weekView.appendChild(weekLayout);
+}
+
+function createWeekJob(job) {
+  const element = document.createElement('div');
+  element.className = 'week-job';
+  element.dataset.status = job.status;
+  element.setAttribute('role', 'button');
+
+  const header = document.createElement('div');
+  header.className = 'week-job-header';
+
+  const statusDot = document.createElement('span');
+  statusDot.className = 'status-dot';
+  statusDot.style.background = statusColor(job.status);
+
+  const time = document.createElement('span');
+  time.className = 'week-job-time';
+  time.textContent = job.time ? `${job.time} Uhr` : 'Ganztägig';
+
+  const deleteButton = document.createElement('button');
+  deleteButton.type = 'button';
+  deleteButton.className = 'icon-button delete-week-job';
+  deleteButton.title = 'Auftrag löschen';
+  deleteButton.textContent = '✕';
+  deleteButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    if (confirm('Auftrag wirklich löschen?')) {
+      try {
+        await deleteJob(job.id);
+        render();
+      } catch (error) {
+        console.error(error);
+        alert(error.message || 'Auftrag konnte nicht gelöscht werden.');
+      }
+    }
+  });
+
+  header.appendChild(statusDot);
+  header.appendChild(time);
+  header.appendChild(deleteButton);
+
+  const title = document.createElement('strong');
+  title.className = 'week-job-title';
+  title.textContent = job.title;
+
+  const metaPrimary = document.createElement('div');
+  metaPrimary.className = 'week-job-meta';
+  metaPrimary.textContent = [job.customer, job.vehicle, job.license]
+    .filter(Boolean)
+    .join(' • ') || 'Keine Kundendaten';
+
+  const contact = document.createElement('div');
+  contact.className = 'week-job-meta';
+  contact.textContent = job.contact || '';
+
+  const flags = document.createElement('div');
+  flags.className = 'week-job-flags';
+  applyJobFlags(flags, job, { compact: true });
+
+  element.appendChild(header);
+  element.appendChild(title);
+  element.appendChild(metaPrimary);
+  if (job.contact) {
+    element.appendChild(contact);
+  }
+  if (!flags.hidden) {
+    element.appendChild(flags);
+  }
+
+  element.addEventListener('click', () => openJobModal(job));
+  element.tabIndex = 0;
+  element.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openJobModal(job);
+    }
+  });
+
+  return element;
 }
 
 function renderClipboard() {
@@ -316,36 +427,107 @@ function renderClipboard() {
   });
 }
 
+function applyJobFlags(container, job, { compact = false } = {}) {
+  if (!container) return;
+  container.innerHTML = '';
+  const flags = JOB_FLAG_CONFIG.filter((flag) => Boolean(job[flag.key]));
+  if (!flags.length) {
+    container.hidden = true;
+    return;
+  }
+
+  container.hidden = false;
+  flags.forEach((flag) => {
+    const badge = document.createElement('span');
+    badge.className = compact ? 'job-flag job-flag--compact' : 'job-flag';
+    badge.textContent = flag.label;
+    container.appendChild(badge);
+  });
+}
+
 function createJobCard(job) {
   const template = document.getElementById('job-card-template');
   const element = template.content.firstElementChild.cloneNode(true);
   element.dataset.jobId = job.id;
+  element.tabIndex = 0;
+  element.setAttribute('role', 'button');
 
   element.querySelector('.job-title').textContent = job.title;
-  element.querySelector('.job-meta').textContent = `${
-    job.time || 'Ganztägig'
-  } • ${job.customer || 'Unbekannter Kunde'}`;
-  element.querySelector('.job-notes').textContent = job.notes || '';
+  element.querySelector('.job-time').textContent = job.time
+    ? `${job.time} Uhr`
+    : 'Ganztägig';
+  element.querySelector('.job-customer').textContent = job.customer || '–';
+  element.querySelector('.job-contact').textContent = job.contact || '–';
+  element.querySelector('.job-vehicle').textContent = job.vehicle || '–';
+  element.querySelector('.job-license').textContent = job.license || '–';
+
+  const notes = element.querySelector('.job-notes');
+  notes.textContent = job.notes || 'Keine Notizen hinterlegt.';
+  notes.classList.toggle('muted', !job.notes);
+
+  const flagsContainer = element.querySelector('.job-flags');
+  applyJobFlags(flagsContainer, job);
+
+  const attachmentsWrapper = element.querySelector('.job-attachments');
+  const attachmentList = attachmentsWrapper?.querySelector('.job-attachment-list');
+  if (attachmentList) {
+    attachmentList.innerHTML = '';
+    attachmentList.addEventListener('click', (event) => event.stopPropagation());
+  }
+
+  if (attachmentsWrapper && attachmentList) {
+    if (job.attachments?.length) {
+      job.attachments.forEach((attachment) => {
+        const link = document.createElement('a');
+        link.href = attachment.url;
+        link.textContent = attachment.name;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        attachmentList.appendChild(link);
+      });
+      attachmentsWrapper.hidden = false;
+    } else {
+      attachmentsWrapper.hidden = true;
+    }
+  }
 
   const statusToggle = element.querySelector('.status-toggle');
   statusToggle.dataset.status = job.status;
   statusToggle.title = STATUS_LABELS[job.status];
   statusToggle.style.background = statusColor(job.status);
-  statusToggle.addEventListener('click', () => cycleJobStatus(job));
+  statusToggle.addEventListener('click', (event) => {
+    event.stopPropagation();
+    cycleJobStatus(job);
+  });
   statusToggle.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
+      event.stopPropagation();
       cycleJobStatus(job);
     }
   });
 
-  element.querySelector('[data-action="details"]').addEventListener('click', () =>
-    openDetailModal(job),
-  );
-  element.querySelector('[data-action="clipboard"]').addEventListener('click', () =>
-    addJobToClipboard(job),
-  );
-  element.addEventListener('dblclick', () => openJobModal(job));
+  const deleteButton = element.querySelector('.delete-job');
+  deleteButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    if (confirm('Auftrag wirklich löschen?')) {
+      try {
+        await deleteJob(job.id);
+        render();
+      } catch (error) {
+        console.error(error);
+        alert(error.message || 'Auftrag konnte nicht gelöscht werden.');
+      }
+    }
+  });
+
+  element.addEventListener('click', () => openJobModal(job));
+  element.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openJobModal(job);
+    }
+  });
 
   return element;
 }
@@ -377,6 +559,9 @@ async function handleJobSubmit(event) {
     vehicle: formData.get('vehicle')?.trim() || '',
     license: formData.get('license')?.trim() || '',
     notes: formData.get('notes')?.trim() || '',
+    huAu: jobForm.elements.huAu.checked,
+    carCare: jobForm.elements.carCare.checked,
+    storage: jobForm.elements.storage.checked,
   };
 
   if (!payload.title) {
@@ -400,6 +585,9 @@ async function handleJobSubmit(event) {
   formData.set('vehicle', payload.vehicle);
   formData.set('license', payload.license);
   formData.set('notes', payload.notes);
+  formData.set('huAu', payload.huAu ? 'true' : 'false');
+  formData.set('carCare', payload.carCare ? 'true' : 'false');
+  formData.set('storage', payload.storage ? 'true' : 'false');
   formData.delete('clipboard');
 
   const replaceAttachments = Boolean(editingJobId && fileInput.files.length);
@@ -456,6 +644,20 @@ async function handleClipboardSubmit(event) {
 
 function handleFileInput() {
   renderAttachmentPreview();
+}
+
+function populateTimeOptions(select) {
+  if (!select || select.dataset.populated === 'true') return;
+  for (let hour = 0; hour < 24; hour++) {
+    for (let minute = 0; minute < 60; minute += 30) {
+      const value = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = `${value} Uhr`;
+      select.appendChild(option);
+    }
+  }
+  select.dataset.populated = 'true';
 }
 
 function renderAttachmentPreview() {
@@ -531,7 +733,14 @@ function openJobModal(job = {}) {
   modalTitle.textContent = editingJobId ? 'Auftrag bearbeiten' : 'Auftrag anlegen';
 
   jobForm.elements.date.value = data.date || formatDateInput(currentDate);
-  jobForm.elements.time.value = data.time || '';
+  const timeSelect = jobForm.elements.time;
+  if (data.time && !Array.from(timeSelect.options).some((option) => option.value === data.time)) {
+    const customOption = document.createElement('option');
+    customOption.value = data.time;
+    customOption.textContent = `${data.time} Uhr`;
+    timeSelect.appendChild(customOption);
+  }
+  timeSelect.value = data.time || '';
   jobForm.elements.category.value = data.category || 'routine';
   jobForm.elements.title.value = data.title || '';
   jobForm.elements.customer.value = data.customer || '';
@@ -539,6 +748,9 @@ function openJobModal(job = {}) {
   jobForm.elements.vehicle.value = data.vehicle || '';
   jobForm.elements.license.value = data.license || '';
   jobForm.elements.notes.value = data.notes || '';
+  jobForm.elements.huAu.checked = Boolean(data.huAu);
+  jobForm.elements.carCare.checked = Boolean(data.carCare);
+  jobForm.elements.storage.checked = Boolean(data.storage);
   jobForm.elements.clipboard.checked = false;
 
   fileInput.value = '';
@@ -546,107 +758,6 @@ function openJobModal(job = {}) {
 
   toggleModal(jobModal, true);
   jobForm.elements.title.focus();
-}
-
-function openDetailModal(job) {
-  const data = findJob(job.id);
-  if (!data) return;
-
-  detailContent.innerHTML = '';
-
-  const detailGrid = document.createElement('div');
-  detailGrid.className = 'detail-grid';
-
-  const items = [
-    { label: 'Datum', value: new Date(data.date).toLocaleDateString('de-DE') },
-    { label: 'Uhrzeit', value: data.time || 'Ganztägig' },
-    { label: 'Bereich', value: CATEGORY_CONFIG[data.category]?.title || '' },
-    { label: 'Kunde', value: data.customer || '–' },
-    { label: 'Kontakt', value: data.contact || '–' },
-    { label: 'Fahrzeug', value: data.vehicle || '–' },
-    { label: 'Kennzeichen', value: data.license || '–' },
-    { label: 'Notizen', value: data.notes || '–' },
-  ];
-
-  detailGrid.innerHTML = items
-    .map(
-      (item) => `
-        <div class="detail-item">
-          <span class="label">${item.label}</span>
-          <span>${item.value}</span>
-        </div>
-      `,
-    )
-    .join('');
-
-  const status = document.createElement('div');
-  status.className = 'status-indicator';
-  status.innerHTML = `
-    <span class="label">Status</span>
-    <span class="status-pill" style="background:${statusColor(data.status)}"></span>
-    <span>${STATUS_LABELS[data.status]}</span>
-  `;
-
-  const attachments = document.createElement('div');
-  attachments.className = 'attachment-list';
-  const attachmentTitle = document.createElement('span');
-  attachmentTitle.className = 'label';
-  attachmentTitle.textContent = 'Dokumente & Bilder';
-  attachments.appendChild(attachmentTitle);
-
-  if (data.attachments?.length) {
-    data.attachments.forEach((attachment) => {
-      const link = document.createElement('a');
-      link.href = attachment.url;
-      link.textContent = attachment.name;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      attachments.appendChild(link);
-    });
-  } else {
-    const empty = document.createElement('span');
-    empty.textContent = 'Keine Anhänge vorhanden.';
-    attachments.appendChild(empty);
-  }
-
-  const actions = document.createElement('div');
-  actions.className = 'modal-actions';
-
-  const editButton = document.createElement('button');
-  editButton.type = 'button';
-  editButton.className = 'ghost-button';
-  editButton.textContent = 'Bearbeiten';
-  editButton.addEventListener('click', () => {
-    toggleModal(detailModal, false);
-    openJobModal(data);
-  });
-
-  const deleteButton = document.createElement('button');
-  deleteButton.type = 'button';
-  deleteButton.className = 'ghost-button';
-  deleteButton.textContent = 'Löschen';
-  deleteButton.addEventListener('click', async () => {
-    if (confirm('Auftrag wirklich löschen?')) {
-      try {
-        await deleteJob(data.id);
-        closeModals();
-        render();
-      } catch (error) {
-        console.error(error);
-        alert(error.message || 'Auftrag konnte nicht gelöscht werden.');
-      }
-    }
-  });
-
-  actions.appendChild(editButton);
-  actions.appendChild(deleteButton);
-
-  detailContent.appendChild(detailGrid);
-  detailContent.appendChild(status);
-  detailContent.appendChild(attachments);
-  detailContent.appendChild(actions);
-
-  toggleModal(detailModal, true);
 }
 
 function openClipboardModal() {
@@ -667,7 +778,6 @@ function closeModals() {
   filePreview.innerHTML = '';
   clipboardForm.reset();
   toggleModal(jobModal, false);
-  toggleModal(detailModal, false);
   toggleModal(clipboardModal, false);
 }
 
@@ -679,37 +789,42 @@ function toggleModal(modal, open) {
   }
 }
 
-async function addJobToClipboard(job) {
-  try {
-    const item = await api.createClipboard({
-      title: job.title,
-      notes: `${job.customer || 'Kunde'} • ${new Date(job.date).toLocaleDateString('de-DE')}`,
-    });
-    state.clipboard.push(item);
-    renderClipboard();
-  } catch (error) {
-    console.error(error);
-    alert(error.message || 'Auftrag konnte nicht zum Clipboard hinzugefügt werden.');
-  }
-}
-
 function changeDay(offset) {
-  currentDate.setDate(currentDate.getDate() + offset);
+  const step = activeView === 'week' ? offset * 7 : offset;
+  currentDate.setDate(currentDate.getDate() + step);
   render();
 }
 
 function showDayView() {
+  if (activeView === 'day') {
+    document.getElementById('day-view-btn').classList.add('active');
+    document.getElementById('week-view-btn').classList.remove('active');
+    dayView.classList.remove('hidden');
+    weekView.classList.add('hidden');
+    return;
+  }
+  activeView = 'day';
   document.getElementById('day-view-btn').classList.add('active');
   document.getElementById('week-view-btn').classList.remove('active');
   dayView.classList.remove('hidden');
   weekView.classList.add('hidden');
+  render();
 }
 
 function showWeekView() {
+  if (activeView === 'week') {
+    document.getElementById('week-view-btn').classList.add('active');
+    document.getElementById('day-view-btn').classList.remove('active');
+    weekView.classList.remove('hidden');
+    dayView.classList.add('hidden');
+    return;
+  }
+  activeView = 'week';
   document.getElementById('week-view-btn').classList.add('active');
   document.getElementById('day-view-btn').classList.remove('active');
   weekView.classList.remove('hidden');
   dayView.classList.add('hidden');
+  render();
 }
 
 function statusColor(status) {
@@ -796,6 +911,18 @@ function getMonday(date) {
   monday.setHours(0, 0, 0, 0);
   monday.setDate(date.getDate() - day + 1);
   return monday;
+}
+
+function getIsoWeekNumber(date) {
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  const dayNumber = (target.getDay() + 6) % 7;
+  target.setDate(target.getDate() - dayNumber + 3);
+  const firstThursday = new Date(target.getFullYear(), 0, 4);
+  const firstThursdayDay = (firstThursday.getDay() + 6) % 7;
+  firstThursday.setDate(firstThursday.getDate() - firstThursdayDay + 3);
+  const diff = target.getTime() - firstThursday.getTime();
+  return 1 + Math.round(diff / (7 * 24 * 60 * 60 * 1000));
 }
 
 async function loadJobsFromServer() {

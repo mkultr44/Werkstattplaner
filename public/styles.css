@@ -149,6 +149,14 @@ button {
   font-family: inherit;
 }
 
+.label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
 .primary-button {
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: #fff;
@@ -265,47 +273,175 @@ button {
 .job-card {
   background: var(--surface-elevated);
   border-radius: 1.25rem;
-  padding: 1rem 1.25rem;
-  border: 1px solid rgba(37, 99, 235, 0.15);
-  box-shadow: 0 8px 25px rgba(15, 23, 42, 0.08);
+  padding: 1.1rem 1.35rem;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.9rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.job-card:hover,
+.job-card:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px rgba(37, 99, 235, 0.2);
+}
+
+.job-card:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.35);
+  outline-offset: 2px;
 }
 
 .job-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
+  gap: 1.25rem;
+}
+
+.job-card-headline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
 .job-title {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 600;
 }
 
-.job-meta {
+.job-time {
   margin: 0;
   color: var(--text-muted);
   font-size: 0.85rem;
 }
 
-.job-notes {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--text);
+.job-card-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .status-toggle {
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 1.9rem;
+  height: 1.9rem;
   border-radius: 0.6rem;
   border: none;
   background: var(--danger);
   cursor: pointer;
   transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.job-card .delete-job {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--danger);
+  font-size: 1rem;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.job-card .delete-job:hover {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.job-details {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem 1.25rem;
+}
+
+.job-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.job-detail dt {
+  margin: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.job-detail dd {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.job-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.job-flag {
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--primary-dark);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.job-flag--compact {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.55rem;
+}
+
+.job-notes {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.job-notes.muted {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.job-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.job-attachment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.job-attachment-list a {
+  color: var(--primary-dark);
+  font-size: 0.85rem;
+  text-decoration: none;
+  background: rgba(37, 99, 235, 0.08);
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+}
+
+.job-attachment-list a:hover {
+  text-decoration: underline;
 }
 
 .status-toggle[data-status='arrived'] {
@@ -316,79 +452,179 @@ button {
   background: var(--success);
 }
 
-.week-grid {
+.week-layout {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.5rem;
+  align-items: flex-start;
 }
 
-.week-row {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 1.25rem;
-}
-
-.week-day {
+.week-category {
   background: var(--surface);
   border-radius: 1.5rem;
-  padding: 1rem;
+  padding: 1.25rem;
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.week-category-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.week-category-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.week-category-header small {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.week-day-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.week-day-block {
+  background: rgba(37, 99, 235, 0.05);
+  border-radius: 1rem;
+  padding: 0.9rem;
+  border: 1px solid rgba(37, 99, 235, 0.12);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 
-.week-day header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+.week-day-block.disabled {
+  opacity: 0.6;
 }
 
-.week-day h3 {
+.week-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.week-day-header h4 {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 600;
+  text-transform: capitalize;
 }
 
-.week-day small {
+.week-day-header span {
   color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
-.week-day .week-columns {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
+.add-week-job {
+  padding: 0.25rem 0.55rem;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
 }
 
-.week-day .week-column {
-  background: rgba(37, 99, 235, 0.06);
-  border-radius: 1rem;
-  padding: 0.75rem;
-  min-height: 120px;
+.week-job-list {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
 }
 
-.week-day .week-column.disabled {
-  opacity: 0.4;
-}
-
-.week-day .week-column h4 {
-  margin: 0;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.week-day .week-job {
+.week-job {
   background: #fff;
-  border-radius: 0.75rem;
-  padding: 0.6rem;
-  border: 1px solid rgba(37, 99, 235, 0.15);
-  font-size: 0.8rem;
+  border-radius: 1rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(37, 99, 235, 0.18);
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.45rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+}
+
+.week-job:hover,
+.week-job:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.2);
+}
+
+.week-job:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.35);
+  outline-offset: 2px;
+}
+
+.week-job-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.status-dot {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.week-job-time {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.delete-week-job {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--danger);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.delete-week-job:hover {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.week-job-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.week-job-meta {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.week-job-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.week-job-flags .job-flag {
+  background: rgba(37, 99, 235, 0.14);
+}
+
+.week-day-block.disabled .add-week-job {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .modal {
@@ -468,6 +704,12 @@ button {
   grid-column: span 2;
 }
 
+.job-option-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 .modal-actions {
   display: flex;
   align-items: center;
@@ -486,6 +728,20 @@ button {
   width: 1.1rem;
   height: 1.1rem;
   border-radius: 0.3rem;
+}
+
+.job-option-list .checkbox {
+  background: rgba(37, 99, 235, 0.08);
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  color: var(--text);
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.job-option-list .checkbox:hover {
+  background: rgba(37, 99, 235, 0.12);
+  border-color: rgba(37, 99, 235, 0.4);
 }
 
 .spacer {
@@ -521,30 +777,6 @@ button {
   margin: 0.3rem 0 0;
 }
 
-.detail-content {
-  display: grid;
-  gap: 1rem;
-}
-
-.detail-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem 1.5rem;
-}
-
-.detail-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.detail-item span.label {
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
 .attachment-list {
   display: flex;
   flex-direction: column;
@@ -555,19 +787,6 @@ button {
   color: var(--primary);
   text-decoration: none;
   font-weight: 500;
-}
-
-.status-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-}
-
-.status-pill {
-  width: 0.75rem;
-  height: 0.75rem;
-  border-radius: 50%;
 }
 
 .empty-state {
