@@ -25,6 +25,9 @@ db.exec(`
     vehicle TEXT,
     license TEXT,
     notes TEXT,
+    hu_au INTEGER NOT NULL DEFAULT 0,
+    car_care INTEGER NOT NULL DEFAULT 0,
+    storage INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'arrived', 'done')),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -47,5 +50,19 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 `);
+
+const jobColumns = new Set(db.prepare('PRAGMA table_info(jobs)').all().map((column) => column.name));
+
+const optionalColumns = [
+  { name: 'hu_au', sql: "ALTER TABLE jobs ADD COLUMN hu_au INTEGER NOT NULL DEFAULT 0" },
+  { name: 'car_care', sql: "ALTER TABLE jobs ADD COLUMN car_care INTEGER NOT NULL DEFAULT 0" },
+  { name: 'storage', sql: "ALTER TABLE jobs ADD COLUMN storage INTEGER NOT NULL DEFAULT 0" },
+];
+
+optionalColumns.forEach((column) => {
+  if (!jobColumns.has(column.name)) {
+    db.exec(column.sql);
+  }
+});
 
 module.exports = db;
