@@ -29,12 +29,40 @@ const SERVICE_FLAGS = [
 
 const TEXT_BLOCK_CATEGORIES = [
   {
+    id: 'climate',
+    label: 'Heizung / Klimaanlage',
+    blocks: [
+      { text: 'Klimaservice', aw: 10 },
+      { text: 'Klimaanlage desinfizieren', aw: 6 },
+      { text: 'Pollenfilter erneuern', aw: 3 },
+    ],
+  },
+  {
     id: 'inspection',
     label: 'HU / AU',
     blocks: [
-      { text: 'HU/AU vorbereiten und durchführen', aw: 5 },
-      { text: 'Sicherheitsrelevante Systeme prüfen', aw: 4 },
-      { text: 'Abgasuntersuchung inklusive Dokumentation', aw: 3 },
+      { text: 'TÜV / AU', aw: 5 },
+      { text: 'HU / AU Vorbereitung', aw: 4 },
+      { text: 'Abgasuntersuchung dokumentieren', aw: 3 },
+    ],
+  },
+  {
+    id: 'wheels',
+    label: 'Räder / Reifen',
+    blocks: [
+      { text: 'Radwechsel 4x', aw: 5 },
+      { text: 'Reifen erneuern 1 Stück', aw: 5 },
+      { text: 'Reifen erneuern 4 Stück', aw: 12 },
+      { text: 'Reifen wechseln mit wuchten 4x', aw: 12 },
+    ],
+  },
+  {
+    id: 'carCare',
+    label: 'Wagenpflege',
+    blocks: [
+      { text: 'Motorwäsche', aw: 10 },
+      { text: 'Wagenpflege innen + außen', aw: 10 },
+      { text: 'Aufbereitung Lack & Innenraum', aw: 12 },
     ],
   },
   {
@@ -42,47 +70,9 @@ const TEXT_BLOCK_CATEGORIES = [
     label: 'Wartung',
     blocks: [
       { text: 'Ölwechsel mit Filter', aw: 5 },
-      { text: 'Inspektionsservice nach Herstellervorgabe', aw: 8 },
+      { text: 'Urlaubscheck', aw: 5 },
+      { text: 'Wintercheck', aw: 5 },
       { text: 'Bremsflüssigkeit wechseln', aw: 4 },
-      { text: 'Urlaubscheck durchführen', aw: 5 },
-      { text: 'Wintercheck inkl. Batterietest', aw: 5 },
-    ],
-  },
-  {
-    id: 'wheels',
-    label: 'Räder / Reifen',
-    blocks: [
-      { text: 'Räder wechseln und auswuchten', aw: 6 },
-      { text: 'Reifen erneuern inkl. Entsorgung', aw: 12 },
-      { text: 'Reifendrucksensoren anlernen', aw: 4 },
-      { text: 'Einlagerung vorbereiten und dokumentieren', aw: 3 },
-    ],
-  },
-  {
-    id: 'climate',
-    label: 'Heizung / Klimaanlage',
-    blocks: [
-      { text: 'Klimaservice mit Dichtigkeitsprüfung', aw: 10 },
-      { text: 'Pollenfilter erneuern', aw: 3 },
-      { text: 'Klimaanlage desinfizieren', aw: 4 },
-    ],
-  },
-  {
-    id: 'diagnostics',
-    label: 'Diagnose & Elektrik',
-    blocks: [
-      { text: 'Fehlerspeicher auslesen und bewerten', aw: 4 },
-      { text: 'Batterie prüfen und protokollieren', aw: 3 },
-      { text: 'Elektrische Verbraucher testen', aw: 5 },
-    ],
-  },
-  {
-    id: 'bodywork',
-    label: 'Karosserie & Glas',
-    blocks: [
-      { text: 'Steinschlagreparatur Frontscheibe', aw: 5 },
-      { text: 'Karosserieschaden aufnehmen und kalkulieren', aw: 6 },
-      { text: 'Innenraumreinigung Premium', aw: 8 },
     ],
   },
 ];
@@ -274,6 +264,8 @@ function renderTextBlockItems() {
   });
 
   textBlockList.innerHTML = '';
+  textBlockList.classList.toggle('has-results', matches.length > 0);
+  textBlockList.scrollTop = 0;
 
   if (matches.length === 0) {
     const emptyState = document.createElement('p');
@@ -283,34 +275,45 @@ function renderTextBlockItems() {
     return;
   }
 
+  const header = document.createElement('div');
+  header.className = 'text-block-header';
+
+  const headerText = document.createElement('span');
+  headerText.textContent = 'Text';
+  header.appendChild(headerText);
+
+  const headerAw = document.createElement('span');
+  headerAw.textContent = 'AW';
+  header.appendChild(headerAw);
+
+  textBlockList.appendChild(header);
+
   matches.forEach(({ block, category }) => {
     const itemButton = document.createElement('button');
     itemButton.type = 'button';
-    itemButton.className = 'text-block-item';
+    itemButton.className = 'text-block-row';
 
-    const header = document.createElement('div');
-    header.className = 'text-block-item-header';
+    const textCell = document.createElement('div');
+    textCell.className = 'text-block-cell text-block-cell-text';
 
-    const textSpan = document.createElement('span');
-    textSpan.className = 'text-block-item-text';
-    textSpan.textContent = block.text;
-    header.appendChild(textSpan);
-
-    if (block.aw) {
-      const awSpan = document.createElement('span');
-      awSpan.className = 'text-block-item-aw';
-      awSpan.textContent = `${block.aw} AW`;
-      header.appendChild(awSpan);
-    }
-
-    itemButton.appendChild(header);
+    const title = document.createElement('span');
+    title.className = 'text-block-title';
+    title.textContent = block.text;
+    textCell.appendChild(title);
 
     if (searchTerm) {
       const categoryLabel = document.createElement('span');
       categoryLabel.className = 'text-block-item-category';
       categoryLabel.textContent = category.label;
-      itemButton.appendChild(categoryLabel);
+      textCell.appendChild(categoryLabel);
     }
+
+    itemButton.appendChild(textCell);
+
+    const awCell = document.createElement('span');
+    awCell.className = 'text-block-cell text-block-cell-aw';
+    awCell.textContent = block.aw ? block.aw : '—';
+    itemButton.appendChild(awCell);
 
     itemButton.addEventListener('click', () => handleTextBlockSelection(block));
     textBlockList.appendChild(itemButton);
