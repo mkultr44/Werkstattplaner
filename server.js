@@ -40,6 +40,9 @@ const JOB_COLUMNS = `
   vehicle,
   license,
   notes,
+  hu_au,
+  car_care,
+  storage,
   status,
   created_at,
   updated_at
@@ -48,8 +51,8 @@ const JOB_COLUMNS = `
 const selectJobById = db.prepare(`SELECT ${JOB_COLUMNS} FROM jobs WHERE id = ?`);
 const selectAllJobs = db.prepare(`SELECT ${JOB_COLUMNS} FROM jobs ORDER BY date, time`);
 const insertJobStmt = db.prepare(
-  `INSERT INTO jobs (date, time, category, title, customer, contact, vehicle, license, notes, status)
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  `INSERT INTO jobs (date, time, category, title, customer, contact, vehicle, license, notes, status, hu_au, car_care, storage)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 );
 const updateJobStmt = db.prepare(
   `UPDATE jobs
@@ -62,6 +65,9 @@ const updateJobStmt = db.prepare(
          vehicle = ?,
          license = ?,
          notes = ?,
+         hu_au = ?,
+         car_care = ?,
+         storage = ?,
          status = ?,
          updated_at = CURRENT_TIMESTAMP
    WHERE id = ?`
@@ -247,6 +253,9 @@ const insertJobTransaction = db.transaction((payload, files) => {
     payload.license ?? null,
     payload.notes ?? null,
     payload.status,
+    payload.huAu ? 1 : 0,
+    payload.carCare ? 1 : 0,
+    payload.storage ? 1 : 0,
   );
   const jobId = Number(result.lastInsertRowid);
 
@@ -272,6 +281,9 @@ const updateJobTransaction = db.transaction((jobId, payload, files, replaceAttac
     payload.vehicle ?? null,
     payload.license ?? null,
     payload.notes ?? null,
+    payload.huAu ? 1 : 0,
+    payload.carCare ? 1 : 0,
+    payload.storage ? 1 : 0,
     payload.status,
     jobId,
   );
@@ -304,6 +316,9 @@ function attachJobResources(row) {
     vehicle: row.vehicle || '',
     license: row.license || '',
     notes: row.notes || '',
+    huAu: Boolean(row.hu_au),
+    carCare: Boolean(row.car_care),
+    storage: Boolean(row.storage),
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -351,8 +366,30 @@ function parseJobPayload(body, options = {}) {
     vehicle: optionalText(body.vehicle),
     license: optionalText(body.license),
     notes: optionalText(body.notes),
+    huAu: normalizeBoolean(firstDefined(body.huAu, body.hu_au)),
+    carCare: normalizeBoolean(firstDefined(body.carCare, body.car_care)),
+    storage: normalizeBoolean(firstDefined(body.storage, body.storage_service)),
     status: validateStatus(body.status ?? options.defaultStatus ?? 'pending'),
   };
+}
+
+function normalizeBoolean(value) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return ['1', 'true', 'yes', 'on'].includes(normalized);
+  }
+  return false;
+}
+
+function firstDefined(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null) {
+      return value;
+    }
+  }
+  return undefined;
 }
 
 function normalizeDate(value) {

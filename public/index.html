@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b1f2a" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
     <title>Werkstattplaner</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -60,7 +63,9 @@
             </div>
             <div class="form-field">
               <label for="job-time">Uhrzeit</label>
-              <input type="time" id="job-time" name="time" />
+              <select id="job-time" name="time">
+                <option value="">Ganztägig</option>
+              </select>
             </div>
             <div class="form-field">
               <label for="job-category">Arbeitsbereich</label>
@@ -90,9 +95,31 @@
               <label for="job-license">Kennzeichen</label>
               <input type="text" id="job-license" name="license" placeholder="z. B. AB-XY 123" />
             </div>
-            <div class="form-field span-2">
-              <label for="job-notes">Notizen</label>
+            <div class="form-field span-2 with-action">
+              <div class="field-label">
+                <label for="job-notes">Beschreibung</label>
+                <button id="text-blocks-btn" class="ghost-button small" type="button">
+                  Textbausteine
+                </button>
+              </div>
               <textarea id="job-notes" name="notes" rows="3" placeholder="Zusätzliche Details"></textarea>
+            </div>
+            <div class="form-field span-2 service-flags">
+              <span class="label">Zusatzleistungen</span>
+              <div class="service-checkboxes">
+                <label class="checkbox">
+                  <input type="checkbox" id="job-hu-au" name="huAu" value="1" />
+                  <span>HU / AU</span>
+                </label>
+                <label class="checkbox">
+                  <input type="checkbox" id="job-car-care" name="carCare" value="1" />
+                  <span>Wagenpflege</span>
+                </label>
+                <label class="checkbox">
+                  <input type="checkbox" id="job-storage" name="storage" value="1" />
+                  <span>Einlagerung</span>
+                </label>
+              </div>
             </div>
             <div class="form-field span-2">
               <label for="job-files">Dokumente &amp; Bilder</label>
@@ -107,23 +134,11 @@
               <span>Auch im Clipboard speichern</span>
             </label>
             <div class="spacer"></div>
+            <button id="delete-job-btn" class="ghost-button danger hidden" type="button">Löschen</button>
             <button class="ghost-button" data-close-modal type="button">Abbrechen</button>
             <button class="primary-button" type="submit">Speichern</button>
           </footer>
         </form>
-      </div>
-    </div>
-
-    <div id="detail-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content">
-        <header>
-          <h2>Auftragsdetails</h2>
-          <button class="icon-button" data-close-modal type="button">✕</button>
-        </header>
-        <div id="detail-content" class="detail-content"></div>
-        <footer class="modal-actions">
-          <button class="ghost-button" data-close-modal type="button">Schließen</button>
-        </footer>
       </div>
     </div>
 
@@ -151,18 +166,72 @@
       </div>
     </div>
 
+    <div id="text-block-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content text-block-modal">
+        <header>
+          <h2>Textbausteine</h2>
+          <button class="icon-button" data-close-text-block type="button">✕</button>
+        </header>
+        <div class="text-block-controls">
+          <div class="form-field">
+            <label for="text-block-search">Schnellzugriff</label>
+            <input
+              type="text"
+              id="text-block-search"
+              placeholder="Suchbegriff eingeben"
+              autocomplete="off"
+            />
+          </div>
+          <div class="form-field">
+            <label for="text-block-category">Kategorie</label>
+            <select id="text-block-category"></select>
+          </div>
+        </div>
+        <div id="text-block-list" class="text-block-list" role="list"></div>
+        <footer class="modal-actions">
+          <div class="spacer"></div>
+          <button class="ghost-button" data-close-text-block type="button">Schliessen</button>
+        </footer>
+      </div>
+    </div>
+
     <template id="job-card-template">
       <article class="job-card">
         <div class="job-card-header">
-          <h3 class="job-title"></h3>
+          <div class="job-card-title">
+            <h3 class="job-title"></h3>
+            <p class="job-time"></p>
+          </div>
           <div class="status-toggle" role="button" tabindex="0" aria-label="Status wechseln"></div>
         </div>
-        <p class="job-meta"></p>
-        <p class="job-notes"></p>
-        <footer>
-          <button class="ghost-button small" data-action="details" type="button">Details</button>
-          <button class="ghost-button small" data-action="clipboard" type="button">Zum Clipboard</button>
-        </footer>
+        <div class="job-meta"></div>
+        <div class="job-info-grid">
+          <div class="job-info-item">
+            <span class="label">Kunde</span>
+            <span class="value job-customer"></span>
+          </div>
+          <div class="job-info-item">
+            <span class="label">Kontakt</span>
+            <span class="value job-contact"></span>
+          </div>
+          <div class="job-info-item">
+            <span class="label">Fahrzeug</span>
+            <span class="value job-vehicle"></span>
+          </div>
+          <div class="job-info-item">
+            <span class="label">Kennzeichen</span>
+            <span class="value job-license"></span>
+          </div>
+        </div>
+        <div class="job-services"></div>
+        <div class="job-notes-block hidden">
+          <span class="label">Notizen</span>
+          <p class="job-notes"></p>
+        </div>
+        <div class="job-attachments hidden">
+          <span class="label">Anhänge</span>
+          <div class="job-attachment-list"></div>
+        </div>
       </article>
     </template>
 
