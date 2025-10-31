@@ -153,6 +153,7 @@ const api = {
 };
 
 bindUI();
+registerServiceWorker();
 bootstrap();
 
 async function bootstrap() {
@@ -219,6 +220,18 @@ function bindUI() {
       if (event.target === textBlockModal) closeTextBlockModal();
     });
   }
+}
+
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) {
+    return;
+  }
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/service-worker.js')
+      .catch((error) => console.error('Service Worker Registrierung fehlgeschlagen:', error));
+  });
 }
 
 function initializeTextBlocks() {
