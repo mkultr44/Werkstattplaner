@@ -35,6 +35,8 @@ const SERVICE_FLAGS = [
   { key: 'rentalCar', label: 'Mietwagen' },
 ];
 
+const WEEKDAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
 const TEXT_BLOCK_CATEGORIES = [
   {
     id: 'climate',
@@ -88,6 +90,8 @@ const TEXT_BLOCK_CATEGORIES = [
 const dayView = document.getElementById('day-view');
 const weekView = document.getElementById('week-view');
 const selectedDateLabel = document.getElementById('selected-date-label');
+const calendarToggle = document.getElementById('calendar-toggle');
+const calendarPopover = document.getElementById('calendar-popover');
 const jobModal = document.getElementById('job-modal');
 const clipboardModal = document.getElementById('clipboard-modal');
 const jobForm = document.getElementById('job-form');
@@ -114,6 +118,8 @@ let currentDate = new Date();
 let editingJobId = null;
 let editingJobSnapshot = null;
 let activeView = 'day';
+let calendarPopoverDate = new Date(currentDate);
+let calendarOpen = false;
 
 const api = {
   listJobs: () => apiRequest('/api/jobs'),
@@ -165,7 +171,7 @@ async function bootstrap() {
 }
 
 function bindUI() {
-  
+
 // ensure checkboxes reflect job flags
 (function(job){
   try{
@@ -175,22 +181,39 @@ function bindUI() {
     if (rentalInput) rentalInput.checked = !!(job?.rentalCar || job?.rentalCar === 1 || job?.rentalCar === '1' || job?.rentalCar === true);
   }catch(e){}
 })(window.currentJob||{});
-populateTimeOptions();
+  populateTimeOptions();
   initializeTextBlocks();
   document.getElementById('day-view-btn').addEventListener('click', showDayView);
   document.getElementById('week-view-btn').addEventListener('click', showWeekView);
   document.getElementById('prev-day').addEventListener('click', () => changeDay(-1));
   document.getElementById('next-day').addEventListener('click', () => changeDay(1));
-  document.getElementById('today-btn').addEventListener('click', () => {
-    currentDate = new Date();
-    render();
-  });
+  const todayButton = document.getElementById('today-btn');
+  if (todayButton) {
+    todayButton.addEventListener('click', () => {
+      const today = new Date();
+      currentDate = activeView === 'week' ? getMonday(today) : today;
+      calendarPopoverDate = new Date(currentDate);
+      closeCalendarPopover();
+      render();
+    });
+  }
   document
     .getElementById('new-job-btn')
     .addEventListener('click', () => openJobModal({ date: formatDateInput(currentDate) }));
   document
     .getElementById('add-clipboard-item')
     .addEventListener('click', () => openClipboardModal());
+
+  if (calendarToggle) {
+    calendarToggle.addEventListener('click', toggleCalendarPopover);
+  }
+
+  if (calendarPopover) {
+    calendarPopover.addEventListener('click', (event) => event.stopPropagation());
+  }
+
+  document.addEventListener('click', handleCalendarDismiss);
+  document.addEventListener('keydown', handleCalendarKeydown);
 
   if (textBlockButton) {
     textBlockButton.addEventListener('click', openTextBlockModal);
@@ -217,11 +240,11 @@ populateTimeOptions();
     button.addEventListener('click', () => closeTextBlockModal());
   });
 
-  [jobModal, clipboardModal].forEach((modal) => {
-    modal.addEventListener('click', (event) => {
-      if (event.target === modal) closeModals();
+  if (clipboardModal) {
+    clipboardModal.addEventListener('click', (event) => {
+      if (event.target === clipboardModal) closeModals();
     });
-  });
+  }
 
   if (textBlockModal) {
     textBlockModal.addEventListener('click', (event) => {
@@ -416,6 +439,9 @@ function render() {
   renderDayView();
   renderWeekView();
   renderClipboard();
+  if (calendarOpen) {
+    renderCalendarPopover();
+  }
 }
 
 function renderHeader() {
@@ -423,24 +449,21 @@ function renderHeader() {
   const nextButton = document.getElementById('next-day');
 
   if (activeView === 'week') {
-    const startOfWeek = getMonday(currentDate);
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-
-    const startText = startOfWeek.toLocaleDateString('de-DE', {
+    const monday = getMonday(currentDate);
+    const friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4);
+    const weekNumber = getISOWeek(monday);
+    const weekRange = `${monday.toLocaleDateString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+    })} – ${friday.toLocaleDateString('de-DE', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
-    });
-    const endText = endOfWeek.toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-
-    selectedDateLabel.textContent = `Woche ${startText} – ${endText}`;
-    prevButton.setAttribute('aria-label', 'Vorherige Woche');
-    nextButton.setAttribute('aria-label', 'Nächste Woche');
+    })}`;
+    selectedDateLabel.textContent = `KW ${weekNumber} ${monday.getFullYear()} · ${weekRange}`;
+    prevButton.setAttribute('aria-label', 'Vorherige Kalenderwoche');
+    nextButton.setAttribute('aria-label', 'Nächste Kalenderwoche');
   } else {
     selectedDateLabel.textContent = currentDate.toLocaleDateString('de-DE', {
       weekday: 'long',
@@ -451,7 +474,518 @@ function renderHeader() {
     prevButton.setAttribute('aria-label', 'Vorheriger Tag');
     nextButton.setAttribute('aria-label', 'Nächster Tag');
   }
+
+  if (calendarToggle) {
+    calendarToggle.setAttribute(
+      'aria-label',
+      activeView === 'week' ? 'Kalenderwoche auswählen' : 'Datum auswählen',
+    );
+    calendarToggle.setAttribute('aria-expanded', String(calendarOpen));
+  }
+
+  if (calendarPopover) {
+    calendarPopover.setAttribute('aria-hidden', calendarOpen ? 'false' : 'true');
+  }
 }
+
+function toggleCalendarPopover(event) {
+  if (!calendarPopover) return;
+  event.preventDefault();
+  event.stopPropagation();
+
+  if (calendarOpen) {
+    closeCalendarPopover();
+  } else {
+    openCalendarPopover();
+  }
+}
+
+function openCalendarPopover() {
+  if (!calendarPopover) return;
+  calendarPopoverDate = new Date(currentDate);
+  calendarPopoverDate.setHours(0, 0, 0, 0);
+  calendarOpen = true;
+  calendarPopover.classList.remove('hidden');
+  calendarPopover.setAttribute('aria-hidden', 'false');
+  if (calendarToggle) {
+    calendarToggle.setAttribute('aria-expanded', 'true');
+  }
+  renderCalendarPopover();
+}
+
+function closeCalendarPopover() {
+  if (!calendarPopover) return;
+  if (!calendarOpen) return;
+  calendarOpen = false;
+  calendarPopover.classList.add('hidden');
+  calendarPopover.setAttribute('aria-hidden', 'true');
+  if (calendarToggle) {
+    calendarToggle.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function handleCalendarDismiss(event) {
+  if (!calendarOpen) return;
+  if (
+    (calendarPopover && calendarPopover.contains(event.target)) ||
+    (calendarToggle && calendarToggle.contains(event.target))
+  ) {
+    return;
+  }
+  closeCalendarPopover();
+}
+
+function handleCalendarKeydown(event) {
+  if (event.key === 'Escape' && calendarOpen) {
+    closeCalendarPopover();
+  }
+}
+
+function renderCalendarPopover() {
+  if (!calendarPopover) return;
+  calendarPopover.innerHTML = '';
+  if (!calendarOpen) {
+    calendarPopover.classList.add('hidden');
+    return;
+  }
+
+  if (activeView === 'week') {
+    calendarPopover.appendChild(createWeekPicker());
+  } else {
+    calendarPopover.appendChild(createDayPicker());
+  }
+}
+
+function createDayPicker() {
+  const container = document.createElement('div');
+  container.className = 'day-picker';
+
+  const viewDate = new Date(calendarPopoverDate);
+  viewDate.setDate(1);
+
+  const header = document.createElement('div');
+  header.className = 'day-picker-header';
+
+  const prev = document.createElement('button');
+  prev.type = 'button';
+  prev.textContent = '‹';
+  prev.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    calendarPopoverDate.setDate(1);
+    calendarPopoverDate.setMonth(calendarPopoverDate.getMonth() - 1);
+    renderCalendarPopover();
+  });
+
+  const title = document.createElement('h4');
+  title.textContent = viewDate.toLocaleDateString('de-DE', {
+    month: 'long',
+    year: 'numeric',
+  });
+
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.textContent = '›';
+  next.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    calendarPopoverDate.setDate(1);
+    calendarPopoverDate.setMonth(calendarPopoverDate.getMonth() + 1);
+    renderCalendarPopover();
+  });
+
+  header.appendChild(prev);
+  header.appendChild(title);
+  header.appendChild(next);
+
+  const weekdays = document.createElement('div');
+  weekdays.className = 'day-picker-weekdays';
+  WEEKDAY_LABELS.forEach((label) => {
+    const span = document.createElement('span');
+    span.textContent = label;
+    weekdays.appendChild(span);
+  });
+
+  const grid = document.createElement('div');
+  grid.className = 'day-picker-grid';
+
+  const monthStart = getMonday(viewDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const selected = new Date(currentDate);
+  selected.setHours(0, 0, 0, 0);
+
+  for (let index = 0; index < 42; index += 1) {
+    const cellDate = new Date(monthStart);
+    cellDate.setDate(monthStart.getDate() + index);
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = String(cellDate.getDate());
+
+    if (cellDate.getMonth() !== viewDate.getMonth()) {
+      button.classList.add('other-month');
+    }
+    if (isSameDate(cellDate, today)) {
+      button.classList.add('today');
+    }
+    if (isSameDate(cellDate, selected)) {
+      button.classList.add('selected');
+    }
+
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      currentDate = new Date(cellDate);
+      calendarPopoverDate = new Date(currentDate);
+      closeCalendarPopover();
+      render();
+    });
+
+    grid.appendChild(button);
+  }
+
+  container.appendChild(header);
+  container.appendChild(weekdays);
+  container.appendChild(grid);
+  return container;
+}
+
+function createWeekPicker() {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'day-picker';
+
+  const header = document.createElement('div');
+  header.className = 'day-picker-header';
+
+  const prev = document.createElement('button');
+  prev.type = 'button';
+  prev.textContent = '‹';
+  prev.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    calendarPopoverDate.setDate(1);
+    calendarPopoverDate.setFullYear(calendarPopoverDate.getFullYear() - 1);
+    renderCalendarPopover();
+  });
+
+  const title = document.createElement('h4');
+  title.textContent = calendarPopoverDate.getFullYear();
+
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.textContent = '›';
+  next.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    calendarPopoverDate.setDate(1);
+    calendarPopoverDate.setFullYear(calendarPopoverDate.getFullYear() + 1);
+    renderCalendarPopover();
+  });
+
+  header.appendChild(prev);
+  header.appendChild(title);
+  header.appendChild(next);
+
+  const grid = document.createElement('div');
+  grid.className = 'week-picker';
+
+  const currentWeekStart = getMonday(currentDate);
+  const year = calendarPopoverDate.getFullYear();
+
+  for (let month = 0; month < 12; month += 1) {
+    const weeks = getWeeksForMonth(year, month);
+    if (!weeks.length) continue;
+
+    const monthSection = document.createElement('section');
+    monthSection.className = 'week-picker-month';
+
+    const monthTitle = new Date(year, month, 1).toLocaleDateString('de-DE', {
+      month: 'long',
+    });
+    const heading = document.createElement('h4');
+    heading.textContent = monthTitle;
+    monthSection.appendChild(heading);
+
+    const list = document.createElement('div');
+    list.className = 'week-picker-list';
+
+    weeks.forEach((weekStart) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      const weekNumber = getISOWeek(weekStart);
+      button.textContent = `KW ${weekNumber}`;
+      button.title = `KW ${weekNumber} · ${formatWeekRange(weekStart)}`;
+      if (isSameDate(weekStart, currentWeekStart)) {
+        button.classList.add('selected');
+      }
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        currentDate = new Date(weekStart);
+        calendarPopoverDate = new Date(currentDate);
+        closeCalendarPopover();
+        render();
+      });
+      list.appendChild(button);
+    });
+
+    monthSection.appendChild(list);
+    grid.appendChild(monthSection);
+  }
+
+  wrapper.appendChild(header);
+  wrapper.appendChild(grid);
+  return wrapper;
+}
+
+function toggleCalendarPopover(event) {
+  if (!calendarPopover) return;
+  event.preventDefault();
+  event.stopPropagation();
+
+  if (calendarOpen) {
+    closeCalendarPopover();
+  } else {
+    openCalendarPopover();
+  }
+}
+
+function openCalendarPopover() {
+  if (!calendarPopover) return;
+  calendarPopoverDate = new Date(currentDate);
+  calendarPopoverDate.setHours(0, 0, 0, 0);
+  calendarOpen = true;
+  calendarPopover.classList.remove('hidden');
+  calendarPopover.setAttribute('aria-hidden', 'false');
+  if (calendarToggle) {
+    calendarToggle.setAttribute('aria-expanded', 'true');
+  }
+  renderCalendarPopover();
+}
+
+function closeCalendarPopover() {
+  if (!calendarPopover) return;
+  if (!calendarOpen) return;
+  calendarOpen = false;
+  calendarPopover.classList.add('hidden');
+  calendarPopover.setAttribute('aria-hidden', 'true');
+  if (calendarToggle) {
+    calendarToggle.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function handleCalendarDismiss(event) {
+  if (!calendarOpen) return;
+  if (
+    (calendarPopover && calendarPopover.contains(event.target)) ||
+    (calendarToggle && calendarToggle.contains(event.target))
+  ) {
+    return;
+  }
+  closeCalendarPopover();
+}
+
+function handleCalendarKeydown(event) {
+  if (event.key === 'Escape' && calendarOpen) {
+    closeCalendarPopover();
+  }
+}
+
+function renderCalendarPopover() {
+  if (!calendarPopover) return;
+  calendarPopover.innerHTML = '';
+  if (!calendarOpen) {
+    calendarPopover.classList.add('hidden');
+    return;
+  }
+
+  if (activeView === 'week') {
+    calendarPopover.appendChild(createWeekPicker());
+  } else {
+    calendarPopover.appendChild(createDayPicker());
+  }
+}
+
+function createDayPicker() {
+  const container = document.createElement('div');
+  container.className = 'day-picker';
+
+  const viewDate = new Date(calendarPopoverDate);
+  viewDate.setDate(1);
+
+  const header = document.createElement('div');
+  header.className = 'day-picker-header';
+
+  const prev = document.createElement('button');
+  prev.type = 'button';
+  prev.textContent = '‹';
+  prev.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    calendarPopoverDate.setMonth(calendarPopoverDate.getMonth() - 1);
+    renderCalendarPopover();
+  });
+
+  const title = document.createElement('h4');
+  title.textContent = viewDate.toLocaleDateString('de-DE', {
+    month: 'long',
+    year: 'numeric',
+  });
+
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.textContent = '›';
+  next.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    calendarPopoverDate.setMonth(calendarPopoverDate.getMonth() + 1);
+    renderCalendarPopover();
+  });
+
+  header.appendChild(prev);
+  header.appendChild(title);
+  header.appendChild(next);
+
+  const weekdays = document.createElement('div');
+  weekdays.className = 'day-picker-weekdays';
+  WEEKDAY_LABELS.forEach((label) => {
+    const span = document.createElement('span');
+    span.textContent = label;
+    weekdays.appendChild(span);
+  });
+
+  const grid = document.createElement('div');
+  grid.className = 'day-picker-grid';
+
+  const monthStart = getMonday(viewDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const selected = new Date(currentDate);
+  selected.setHours(0, 0, 0, 0);
+
+  for (let index = 0; index < 42; index += 1) {
+    const cellDate = new Date(monthStart);
+    cellDate.setDate(monthStart.getDate() + index);
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = String(cellDate.getDate());
+
+    if (cellDate.getMonth() !== viewDate.getMonth()) {
+      button.classList.add('other-month');
+    }
+    if (isSameDate(cellDate, today)) {
+      button.classList.add('today');
+    }
+    if (isSameDate(cellDate, selected)) {
+      button.classList.add('selected');
+    }
+
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      currentDate = new Date(cellDate);
+      calendarPopoverDate = new Date(currentDate);
+      closeCalendarPopover();
+      render();
+    });
+
+    grid.appendChild(button);
+  }
+
+  container.appendChild(header);
+  container.appendChild(weekdays);
+  container.appendChild(grid);
+  return container;
+}
+
+function createWeekPicker() {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'day-picker';
+
+  const header = document.createElement('div');
+  header.className = 'day-picker-header';
+
+  const prev = document.createElement('button');
+  prev.type = 'button';
+  prev.textContent = '‹';
+  prev.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    calendarPopoverDate.setFullYear(calendarPopoverDate.getFullYear() - 1);
+    renderCalendarPopover();
+  });
+
+  const title = document.createElement('h4');
+  title.textContent = calendarPopoverDate.getFullYear();
+
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.textContent = '›';
+  next.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    calendarPopoverDate.setFullYear(calendarPopoverDate.getFullYear() + 1);
+    renderCalendarPopover();
+  });
+
+  header.appendChild(prev);
+  header.appendChild(title);
+  header.appendChild(next);
+
+  const grid = document.createElement('div');
+  grid.className = 'week-picker';
+
+  const currentWeekStart = getMonday(currentDate);
+  const year = calendarPopoverDate.getFullYear();
+
+  for (let month = 0; month < 12; month += 1) {
+    const weeks = getWeeksForMonth(year, month);
+    if (!weeks.length) continue;
+
+    const monthSection = document.createElement('section');
+    monthSection.className = 'week-picker-month';
+
+    const monthTitle = new Date(year, month, 1).toLocaleDateString('de-DE', {
+      month: 'long',
+    });
+    const heading = document.createElement('h4');
+    heading.textContent = monthTitle;
+    monthSection.appendChild(heading);
+
+    const list = document.createElement('div');
+    list.className = 'week-picker-list';
+
+    weeks.forEach((weekStart) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      const weekNumber = getISOWeek(weekStart);
+      button.textContent = `KW ${weekNumber}`;
+      button.title = `KW ${weekNumber} · ${formatWeekRange(weekStart)}`;
+      if (isSameDate(weekStart, currentWeekStart)) {
+        button.classList.add('selected');
+      }
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        currentDate = new Date(weekStart);
+        calendarPopoverDate = new Date(currentDate);
+        closeCalendarPopover();
+        render();
+      });
+      list.appendChild(button);
+    });
+
+    monthSection.appendChild(list);
+    grid.appendChild(monthSection);
+  }
+
+  wrapper.appendChild(header);
+  wrapper.appendChild(grid);
+  return wrapper;
+}
+
 
 function renderDayView() {
   const dayColumns = document.createElement('div');
@@ -503,89 +1037,125 @@ function renderDayView() {
 }
 
 function renderWeekView() {
-  const startOfWeek = getMonday(currentDate);
+  const monday = getMonday(currentDate);
   const layout = document.createElement('div');
-  layout.className = 'week-layout';
+  layout.className = 'week-grid';
 
-  CATEGORY_ORDER.forEach((category) => {
-    const config = CATEGORY_CONFIG[category];
-    const categorySection = document.createElement('section');
-    categorySection.className = 'week-category';
+  for (let offset = 0; offset < 5; offset += 1) {
+    const day = new Date(monday);
+    day.setDate(monday.getDate() + offset);
+
+    const column = document.createElement('section');
+    column.className = 'week-day-column';
 
     const header = document.createElement('header');
-    const title = document.createElement('h3');
-    title.textContent = config.title;
-    const description = document.createElement('small');
-    description.textContent = config.description;
-    header.appendChild(title);
-    header.appendChild(description);
-    categorySection.appendChild(header);
+    header.className = 'week-day-header';
 
-    const dayList = document.createElement('div');
-    dayList.className = 'week-day-list';
+    const info = document.createElement('div');
+    info.className = 'week-day-info';
 
-    for (let i = 0; i < 7; i++) {
-      const day = new Date(startOfWeek);
-      day.setDate(startOfWeek.getDate() + i);
+    const dayName = document.createElement('span');
+    dayName.className = 'weekday-name';
+    dayName.textContent = day.toLocaleDateString('de-DE', { weekday: 'long' });
+
+    const dayLabel = document.createElement('span');
+    dayLabel.className = 'weekday-date';
+    dayLabel.textContent = day.toLocaleDateString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+    });
+
+    info.appendChild(dayName);
+    info.appendChild(dayLabel);
+
+    const actions = document.createElement('div');
+    actions.className = 'week-day-actions';
+
+    const addGeneral = document.createElement('button');
+    addGeneral.type = 'button';
+    addGeneral.className = 'week-add-button';
+    addGeneral.textContent = '+';
+    addGeneral.setAttribute(
+      'aria-label',
+      `Auftrag für ${day.toLocaleDateString('de-DE')} hinzufügen`,
+    );
+    addGeneral.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openJobModal({ date: formatDateInput(day) });
+    });
+
+    actions.appendChild(addGeneral);
+
+    header.appendChild(info);
+    header.appendChild(actions);
+    column.appendChild(header);
+
+    const categoriesContainer = document.createElement('div');
+    categoriesContainer.className = 'week-categories';
+
+    CATEGORY_ORDER.forEach((category) => {
+      const config = CATEGORY_CONFIG[category];
       const available = isCategoryAvailable(category, day);
 
-      const dayBlock = document.createElement('article');
-      dayBlock.className = 'week-day-block';
-      if (!available) dayBlock.classList.add('disabled');
+      const group = document.createElement('article');
+      group.className = 'week-category-group';
+      if (!available) group.classList.add('disabled');
 
-      const dayHeader = document.createElement('div');
-      dayHeader.className = 'week-day-header';
+      const groupHeader = document.createElement('div');
+      groupHeader.className = 'week-category-header';
 
-      const dayName = document.createElement('span');
-      dayName.className = 'weekday-name';
-      dayName.textContent = day.toLocaleDateString('de-DE', { weekday: 'short' });
+      const title = document.createElement('div');
+      title.className = 'week-category-title';
 
-      const dayLabel = document.createElement('span');
-      dayLabel.className = 'weekday-date';
-      dayLabel.textContent = day.toLocaleDateString('de-DE', {
-        day: '2-digit',
-        month: '2-digit',
-      });
+      const heading = document.createElement('h3');
+      heading.textContent = config.title;
+
+      const description = document.createElement('small');
+      description.textContent = config.description;
+
+      title.appendChild(heading);
+      title.appendChild(description);
 
       const addButton = document.createElement('button');
       addButton.type = 'button';
       addButton.className = 'week-add-button';
       addButton.textContent = '+';
+      addButton.disabled = !available;
       addButton.setAttribute(
         'aria-label',
-        `Auftrag für ${day.toLocaleDateString('de-DE')} hinzufügen`,
+        `Auftrag im Bereich ${config.title} für ${day.toLocaleDateString('de-DE')} hinzufügen`,
       );
-      addButton.disabled = !available;
       addButton.addEventListener('click', (event) => {
+        event.preventDefault();
         event.stopPropagation();
         openJobModal({ date: formatDateInput(day), category });
       });
 
-      dayHeader.appendChild(dayName);
-      dayHeader.appendChild(dayLabel);
-      dayHeader.appendChild(addButton);
+      groupHeader.appendChild(title);
+      groupHeader.appendChild(addButton);
 
       const jobs = getJobsForDay(day, category);
-      const jobContainer = document.createElement('div');
-      jobContainer.className = 'week-job-list';
+      const jobList = document.createElement('div');
+      jobList.className = 'week-job-list';
 
       if (!jobs.length) {
-        const empty = document.createElement('div');
-        empty.className = 'empty-state';
+        const empty = document.createElement('p');
+        empty.className = 'week-empty';
         empty.textContent = available ? 'Keine Aufträge' : 'Nicht verfügbar';
-        jobContainer.appendChild(empty);
+        jobList.appendChild(empty);
       } else {
-        jobs.forEach((job) => jobContainer.appendChild(createWeekJobCard(job)));
+        jobs.forEach((job) => jobList.appendChild(createWeekJobCard(job)));
       }
 
-      dayBlock.appendChild(dayHeader);
-      dayBlock.appendChild(jobContainer);
-      dayList.appendChild(dayBlock);
-    }
+      group.appendChild(groupHeader);
+      group.appendChild(jobList);
+      categoriesContainer.appendChild(group);
+    });
 
-    categorySection.appendChild(dayList);
-    layout.appendChild(categorySection);
-  });
+    column.appendChild(categoriesContainer);
+    layout.appendChild(column);
+  }
 
   weekView.innerHTML = '';
   weekView.appendChild(layout);
@@ -1146,7 +1716,10 @@ function toggleModal(modal, open) {
 
 function changeDay(offset) {
   const multiplier = activeView === 'week' ? 7 : 1;
-  currentDate.setDate(currentDate.getDate() + offset * multiplier);
+  const target = new Date(currentDate);
+  target.setDate(target.getDate() + offset * multiplier);
+  currentDate = activeView === 'week' ? getMonday(target) : target;
+  calendarPopoverDate = new Date(currentDate);
   render();
 }
 
@@ -1156,6 +1729,8 @@ function showDayView() {
   dayView.classList.remove('hidden');
   weekView.classList.add('hidden');
   activeView = 'day';
+  closeCalendarPopover();
+  calendarPopoverDate = new Date(currentDate);
   renderHeader();
 }
 
@@ -1165,7 +1740,10 @@ function showWeekView() {
   weekView.classList.remove('hidden');
   dayView.classList.add('hidden');
   activeView = 'week';
-  renderHeader();
+  currentDate = getMonday(currentDate);
+  calendarPopoverDate = new Date(currentDate);
+  closeCalendarPopover();
+  render();
 }
 
 function statusColor(status) {
@@ -1245,6 +1823,60 @@ function formatDateKey(date) {
 function formatDateInput(date) {
   return formatDateKey(date);
 }
+
+function getWeeksForMonth(year, month) {
+  const weeks = [];
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const seen = new Set();
+
+  for (let day = new Date(firstDay); day <= lastDay; day.setDate(day.getDate() + 1)) {
+    const monday = getMonday(day);
+    if (monday.getFullYear() !== year || monday.getMonth() !== month) {
+      continue;
+    }
+    const key = monday.toISOString().split('T')[0];
+    if (seen.has(key)) continue;
+    seen.add(key);
+    weeks.push(new Date(monday));
+  }
+
+  return weeks;
+}
+
+function isSameDate(a, b) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function getISOWeek(date) {
+  const temp = new Date(date);
+  temp.setHours(0, 0, 0, 0);
+  temp.setDate(temp.getDate() + 4 - (temp.getDay() || 7));
+  const yearStart = new Date(temp.getFullYear(), 0, 1);
+  const diff = temp - yearStart;
+  return Math.ceil(((diff / 86400000) + 1) / 7);
+}
+
+function formatWeekRange(start) {
+  const from = new Date(start);
+  const to = new Date(start);
+  to.setDate(from.getDate() + 4);
+  const startLabel = from.toLocaleDateString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+  });
+  const endLabel = to.toLocaleDateString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  return `${startLabel} – ${endLabel}`;
+}
+
 
 function getMonday(date) {
   const day = date.getDay() || 7;

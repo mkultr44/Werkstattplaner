@@ -139,10 +139,196 @@ main {
   font-size: 1.25rem;
 }
 
+.date-display {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.date-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 #selected-date-label {
   display: block;
   font-weight: 600;
   font-size: 1.1rem;
+}
+
+.calendar-toggle {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.calendar-toggle svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  fill: var(--text-muted);
+}
+
+.calendar-toggle:hover,
+.calendar-toggle:focus-visible {
+  border-color: rgba(37, 99, 235, 0.6);
+  transform: translateY(-1px);
+}
+
+.calendar-popover {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: var(--shadow);
+  padding: 1rem;
+  z-index: 20;
+  min-width: 260px;
+}
+
+.calendar-popover.hidden {
+  display: none !important;
+}
+
+.day-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.day-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.day-picker-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.day-picker button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-muted);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.6rem;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.day-picker button:hover,
+.day-picker button:focus-visible {
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--primary);
+}
+
+.day-picker-weekdays,
+.day-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.day-picker-weekdays span {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.day-picker-grid button {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.75rem;
+  border: 1px solid transparent;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 500;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.day-picker-grid button.other-month {
+  color: var(--text-muted);
+}
+
+.day-picker-grid button.today {
+  border-color: rgba(37, 99, 235, 0.6);
+}
+
+.day-picker-grid button.selected {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
+}
+
+.week-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  min-width: 320px;
+}
+
+.week-picker-month {
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 0.75rem;
+  background: var(--surface-elevated);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.week-picker-month h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.week-picker-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.week-picker-list button {
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  background: #fff;
+  border-radius: 0.75rem;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.week-picker-list button:hover,
+.week-picker-list button:focus-visible {
+  border-color: rgba(37, 99, 235, 0.6);
+  background: rgba(37, 99, 235, 0.08);
+  transform: translateY(-1px);
+}
+
+.week-picker-list button.selected {
+  border-color: rgba(37, 99, 235, 0.8);
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
 }
 
 button {
@@ -494,59 +680,22 @@ button {
   background: var(--success);
 }
 
-.week-layout {
+.week-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1.25rem;
 }
 
-.week-category {
+.week-day-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
   background: var(--surface);
   border-radius: 1.5rem;
-  padding: 1.25rem;
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.week-category > header {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.week-category h3 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.week-category small {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-}
-
-.week-day-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.week-day-block {
-  background: var(--surface-elevated);
-  border-radius: 1.25rem;
-  border: 1px solid rgba(37, 99, 235, 0.15);
-  padding: 0.9rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.1);
-}
-
-.week-day-block.disabled {
-  opacity: 0.65;
+  padding: 1.25rem;
+  min-height: 550px;
 }
 
 .week-day-header {
@@ -556,9 +705,15 @@ button {
   gap: 0.75rem;
 }
 
+.week-day-info {
+  display: flex;
+  flex-direction: column;
+}
+
 .weekday-name {
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  text-transform: capitalize;
 }
 
 .weekday-date {
@@ -566,11 +721,16 @@ button {
   font-size: 0.85rem;
 }
 
+.week-day-actions {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
 .week-add-button {
   border: none;
   background: rgba(37, 99, 235, 0.16);
   color: var(--primary);
-  width: 1.9rem;
+  min-width: 1.9rem;
   height: 1.9rem;
   border-radius: 0.6rem;
   font-size: 1rem;
@@ -588,10 +748,67 @@ button {
   transform: translateY(-1px);
 }
 
+.week-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  flex: 1;
+}
+
+.week-category-group {
+  background: var(--surface-elevated);
+  border-radius: 1.1rem;
+  border: 1px solid rgba(37, 99, 235, 0.15);
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.1);
+}
+
+.week-category-group.disabled {
+  opacity: 0.6;
+}
+
+.week-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.week-category-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.week-category-title h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.week-category-title small {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
 .week-job-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.65rem;
+}
+
+.week-empty {
+  margin: 0;
+  padding: 0.6rem;
+  border-radius: 0.75rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px dashed rgba(148, 163, 184, 0.4);
 }
 
 .week-job-card {
@@ -654,16 +871,16 @@ button {
 .week-job-flags {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
 
 .week-flag {
-  background: rgba(37, 99, 235, 0.18);
-  color: var(--primary);
+  padding: 0.25rem 0.5rem;
+  background: rgba(37, 99, 235, 0.12);
   border-radius: 999px;
-  padding: 0.25rem 0.6rem;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
+  color: var(--primary);
 }
 
 .modal {
@@ -943,8 +1160,8 @@ button {
     grid-template-columns: 260px 1fr;
   }
 
-  .week-layout {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .week-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -970,7 +1187,7 @@ button {
     grid-template-columns: 1fr;
   }
 
-  .week-layout {
+  .week-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -985,6 +1202,10 @@ button {
   }
 
   .job-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .week-picker {
     grid-template-columns: 1fr;
   }
 }
