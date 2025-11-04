@@ -1,3 +1,10 @@
+
+const coerceBool = (v) => {
+  if (v === undefined || v === null) return false;
+  if (typeof v === 'boolean') return v;
+  const s = String(v).toLowerCase();
+  return s === '1' || s === 'true' || s === 'on' || s === 'yes' || s === 'y';
+};
 const STATUS_SEQUENCE = ['pending', 'arrived', 'done'];
 const STATUS_LABELS = {
   pending: 'Auto nicht da',
@@ -158,7 +165,17 @@ async function bootstrap() {
 }
 
 function bindUI() {
-  populateTimeOptions();
+  
+// ensure checkboxes reflect job flags
+(function(job){
+  try{
+    const storageInput = document.querySelector('form#job-form input[name="storage"]');
+    if (storageInput) storageInput.checked = !!(job?.storage || job?.storage === 1 || job?.storage === '1' || job?.storage === true);
+    const rentalInput = document.querySelector('form#job-form input[name="rentalCar"]');
+    if (rentalInput) rentalInput.checked = !!(job?.rentalCar || job?.rentalCar === 1 || job?.rentalCar === '1' || job?.rentalCar === true);
+  }catch(e){}
+})(window.currentJob||{});
+populateTimeOptions();
   initializeTextBlocks();
   document.getElementById('day-view-btn').addEventListener('click', showDayView);
   document.getElementById('week-view-btn').addEventListener('click', showWeekView);
@@ -888,8 +905,8 @@ async function handleJobSubmit(event) {
     notes: formData.get('notes')?.trim() || '',
     huAu: formData.get('huAu') === '1',
     carCare: formData.get('carCare') === '1',
-    storage: formData.get('storage') === '1',
-    rentalCar: formData.get('rentalCar') === '1',
+    storage: coerceBool(formData.get('storage')),
+    rentalCar: coerceBool(formData.get('rentalCar')),
   };
 
   if (!payload.title) {
@@ -915,8 +932,8 @@ async function handleJobSubmit(event) {
   formData.set('notes', payload.notes);
   formData.set('huAu', payload.huAu ? '1' : '0');
   formData.set('carCare', payload.carCare ? '1' : '0');
-  formData.set('storage', payload.storage ? '1' : '0');
-  formData.set('rentalCar', payload.rentalCar ? '1' : '0');
+  formData.set('storage', coerceBool(payload.storage) ? '1' : '0');
+  formData.set('rentalCar', coerceBool(payload.rentalCar) ? '1' : '0');
   formData.delete('clipboard');
 
   const replaceAttachments = Boolean(editingJobId && fileInput.files.length);
