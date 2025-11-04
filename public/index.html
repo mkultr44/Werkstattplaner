@@ -34,9 +34,34 @@
           </div>
           <div class="date-navigation">
             <button id="prev-day" type="button" aria-label="Vorheriger Tag">‹</button>
-            <div>
-              <span id="selected-date-label"></span>
+            <div class="date-display">
+              <div class="date-label">
+                <span id="selected-date-label"></span>
+                <button
+                  id="calendar-toggle"
+                  class="icon-button calendar-toggle"
+                  type="button"
+                  aria-label="Datum auswählen"
+                  aria-expanded="false"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path
+                      d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1.5A2.5 2.5 0 0 1 22 6.5v13A2.5 2.5 0 0 1 19.5 22h-15A2.5 2.5 0 0 1 2 19.5v-13A2.5 2.5 0 0 1 4.5 4H6V3a1 1 0 0 1 1-1Zm12 7H5v10.5a.5.5 0 0 0 .5.5h15a.5.5 0 0 0 .5-.5V9Z"
+                    />
+                  </svg>
+                </button>
+              </div>
               <button id="today-btn" class="ghost-button" type="button">Heute</button>
+              <div
+                id="calendar-popover"
+                class="calendar-popover hidden"
+                role="dialog"
+                aria-hidden="true"
+              ></div>
             </div>
             <button id="next-day" type="button" aria-label="Nächster Tag">›</button>
           </div>
