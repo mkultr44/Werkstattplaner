@@ -43,6 +43,7 @@ const JOB_COLUMNS = `
   hu_au,
   car_care,
   storage,
+  rental_car,
   status,
   created_at,
   updated_at
@@ -51,8 +52,8 @@ const JOB_COLUMNS = `
 const selectJobById = db.prepare(`SELECT ${JOB_COLUMNS} FROM jobs WHERE id = ?`);
 const selectAllJobs = db.prepare(`SELECT ${JOB_COLUMNS} FROM jobs ORDER BY date, time`);
 const insertJobStmt = db.prepare(
-  `INSERT INTO jobs (date, time, category, title, customer, contact, vehicle, license, notes, status, hu_au, car_care, storage)
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  `INSERT INTO jobs (date, time, category, title, customer, contact, vehicle, license, notes, status, hu_au, car_care, storage, rental_car)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 );
 const updateJobStmt = db.prepare(
   `UPDATE jobs
@@ -68,6 +69,7 @@ const updateJobStmt = db.prepare(
          hu_au = ?,
          car_care = ?,
          storage = ?,
+         rental_car = ?,
          status = ?,
          updated_at = CURRENT_TIMESTAMP
    WHERE id = ?`
@@ -256,6 +258,7 @@ const insertJobTransaction = db.transaction((payload, files) => {
     payload.huAu ? 1 : 0,
     payload.carCare ? 1 : 0,
     payload.storage ? 1 : 0,
+    payload.rentalCar ? 1 : 0,
   );
   const jobId = Number(result.lastInsertRowid);
 
@@ -284,6 +287,7 @@ const updateJobTransaction = db.transaction((jobId, payload, files, replaceAttac
     payload.huAu ? 1 : 0,
     payload.carCare ? 1 : 0,
     payload.storage ? 1 : 0,
+    payload.rentalCar ? 1 : 0,
     payload.status,
     jobId,
   );
@@ -319,6 +323,7 @@ function attachJobResources(row) {
     huAu: Boolean(row.hu_au),
     carCare: Boolean(row.car_care),
     storage: Boolean(row.storage),
+    rentalCar: Boolean(row.rental_car),
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -369,6 +374,7 @@ function parseJobPayload(body, options = {}) {
     huAu: normalizeBoolean(firstDefined(body.huAu, body.hu_au)),
     carCare: normalizeBoolean(firstDefined(body.carCare, body.car_care)),
     storage: normalizeBoolean(firstDefined(body.storage, body.storage_service)),
+    rentalCar: normalizeBoolean(firstDefined(body.rentalCar, body.rental_car)),
     status: validateStatus(body.status ?? options.defaultStatus ?? 'pending'),
   };
 }

@@ -28,6 +28,7 @@ db.exec(`
     hu_au INTEGER NOT NULL DEFAULT 0,
     car_care INTEGER NOT NULL DEFAULT 0,
     storage INTEGER NOT NULL DEFAULT 0,
+    rental_car INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'arrived', 'done')),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -70,5 +71,6 @@ const ensureJobColumn = (name, statement) => {
 ensureJobColumn('hu_au', "ALTER TABLE jobs ADD COLUMN hu_au INTEGER NOT NULL DEFAULT 0");
 ensureJobColumn('car_care', "ALTER TABLE jobs ADD COLUMN car_care INTEGER NOT NULL DEFAULT 0");
 ensureJobColumn('storage', "ALTER TABLE jobs ADD COLUMN storage INTEGER NOT NULL DEFAULT 0");
+ensureJobColumn('rental_car', "ALTER TABLE jobs ADD COLUMN rental_car INTEGER NOT NULL DEFAULT 0");
 
 module.exports = db;
