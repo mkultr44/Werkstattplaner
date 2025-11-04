@@ -25,6 +25,7 @@ const SERVICE_FLAGS = [
   { key: 'huAu', label: 'HU / AU' },
   { key: 'carCare', label: 'Wagenpflege' },
   { key: 'storage', label: 'Einlagerung' },
+  { key: 'rentalCar', label: 'Mietwagen' },
 ];
 
 const TEXT_BLOCK_CATEGORIES = [
@@ -851,6 +852,7 @@ async function updateJobPartial(jobId, overrides = {}) {
   formData.set('huAu', next.huAu ? '1' : '0');
   formData.set('carCare', next.carCare ? '1' : '0');
   formData.set('storage', next.storage ? '1' : '0');
+  formData.set('rentalCar', next.rentalCar ? '1' : '0');
   formData.set('replaceAttachments', 'false');
   formData.set('status', next.status);
 
@@ -887,6 +889,7 @@ async function handleJobSubmit(event) {
     huAu: formData.get('huAu') === '1',
     carCare: formData.get('carCare') === '1',
     storage: formData.get('storage') === '1',
+    rentalCar: formData.get('rentalCar') === '1',
   };
 
   if (!payload.title) {
@@ -913,6 +916,7 @@ async function handleJobSubmit(event) {
   formData.set('huAu', payload.huAu ? '1' : '0');
   formData.set('carCare', payload.carCare ? '1' : '0');
   formData.set('storage', payload.storage ? '1' : '0');
+  formData.set('rentalCar', payload.rentalCar ? '1' : '0');
   formData.delete('clipboard');
 
   const replaceAttachments = Boolean(editingJobId && fileInput.files.length);
@@ -1064,6 +1068,7 @@ function openJobModal(job = {}) {
   jobForm.elements.huAu.checked = Boolean(data.huAu);
   jobForm.elements.carCare.checked = Boolean(data.carCare);
   jobForm.elements.storage.checked = Boolean(data.storage);
+  jobForm.elements.rentalCar.checked = Boolean(data.rentalCar);
   jobForm.elements.clipboard.checked = false;
 
   fileInput.value = '';
