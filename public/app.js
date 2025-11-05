@@ -88,7 +88,6 @@ const TEXT_BLOCK_CATEGORIES = [
 ];
 
 const dayView = document.getElementById('day-view');
-const weekView = document.getElementById('week-view');
 const selectedDateLabel = document.getElementById('selected-date-label');
 const calendarToggle = document.getElementById('calendar-toggle');
 const calendarPopover = document.getElementById('calendar-popover');
@@ -117,7 +116,6 @@ const state = {
 let currentDate = new Date();
 let editingJobId = null;
 let editingJobSnapshot = null;
-let activeView = 'day';
 let calendarPopoverDate = new Date(currentDate);
 let calendarOpen = false;
 
@@ -183,15 +181,13 @@ function bindUI() {
 })(window.currentJob||{});
   populateTimeOptions();
   initializeTextBlocks();
-  document.getElementById('day-view-btn').addEventListener('click', showDayView);
-  document.getElementById('week-view-btn').addEventListener('click', showWeekView);
   document.getElementById('prev-day').addEventListener('click', () => changeDay(-1));
   document.getElementById('next-day').addEventListener('click', () => changeDay(1));
   const todayButton = document.getElementById('today-btn');
   if (todayButton) {
     todayButton.addEventListener('click', () => {
       const today = new Date();
-      currentDate = activeView === 'week' ? getMonday(today) : today;
+      currentDate = today;
       calendarPopoverDate = new Date(currentDate);
       closeCalendarPopover();
       render();
@@ -437,7 +433,6 @@ function populateTimeOptions() {
 function render() {
   renderHeader();
   renderDayView();
-  renderWeekView();
   renderClipboard();
   if (calendarOpen) {
     renderCalendarPopover();
@@ -448,38 +443,17 @@ function renderHeader() {
   const prevButton = document.getElementById('prev-day');
   const nextButton = document.getElementById('next-day');
 
-  if (activeView === 'week') {
-    const monday = getMonday(currentDate);
-    const friday = new Date(monday);
-    friday.setDate(monday.getDate() + 4);
-    const weekNumber = getISOWeek(monday);
-    const weekRange = `${monday.toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-    })} – ${friday.toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })}`;
-    selectedDateLabel.textContent = `KW ${weekNumber} ${monday.getFullYear()} · ${weekRange}`;
-    prevButton.setAttribute('aria-label', 'Vorherige Kalenderwoche');
-    nextButton.setAttribute('aria-label', 'Nächste Kalenderwoche');
-  } else {
-    selectedDateLabel.textContent = currentDate.toLocaleDateString('de-DE', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-    prevButton.setAttribute('aria-label', 'Vorheriger Tag');
-    nextButton.setAttribute('aria-label', 'Nächster Tag');
-  }
+  selectedDateLabel.textContent = currentDate.toLocaleDateString('de-DE', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  prevButton.setAttribute('aria-label', 'Vorheriger Tag');
+  nextButton.setAttribute('aria-label', 'Nächster Tag');
 
   if (calendarToggle) {
-    calendarToggle.setAttribute(
-      'aria-label',
-      activeView === 'week' ? 'Kalenderwoche auswählen' : 'Datum auswählen',
-    );
+    calendarToggle.setAttribute('aria-label', 'Datum auswählen');
     calendarToggle.setAttribute('aria-expanded', String(calendarOpen));
   }
 
@@ -549,11 +523,7 @@ function renderCalendarPopover() {
     return;
   }
 
-  if (activeView === 'week') {
-    calendarPopover.appendChild(createWeekPicker());
-  } else {
-    calendarPopover.appendChild(createDayPicker());
-  }
+  calendarPopover.appendChild(createDayPicker());
 }
 
 function createDayPicker() {
@@ -561,6 +531,7 @@ function createDayPicker() {
   container.className = 'day-picker';
 
   const viewDate = new Date(calendarPopoverDate);
+  viewDate.setHours(0, 0, 0, 0);
   viewDate.setDate(1);
 
   const header = document.createElement('div');
@@ -600,6 +571,11 @@ function createDayPicker() {
 
   const weekdays = document.createElement('div');
   weekdays.className = 'day-picker-weekdays';
+  const kwLabel = document.createElement('span');
+  kwLabel.className = 'kw-label';
+  kwLabel.textContent = 'KW';
+  weekdays.appendChild(kwLabel);
+
   WEEKDAY_LABELS.forEach((label) => {
     const span = document.createElement('span');
     span.textContent = label;
@@ -615,128 +591,50 @@ function createDayPicker() {
   const selected = new Date(currentDate);
   selected.setHours(0, 0, 0, 0);
 
-  for (let index = 0; index < 42; index += 1) {
-    const cellDate = new Date(monthStart);
-    cellDate.setDate(monthStart.getDate() + index);
+  for (let weekIndex = 0; weekIndex < 6; weekIndex += 1) {
+    const weekStart = new Date(monthStart);
+    weekStart.setDate(monthStart.getDate() + weekIndex * 7);
 
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.textContent = String(cellDate.getDate());
+    const weekCell = document.createElement('span');
+    weekCell.className = 'kw-cell';
+    weekCell.textContent = String(getISOWeek(weekStart));
+    grid.appendChild(weekCell);
 
-    if (cellDate.getMonth() !== viewDate.getMonth()) {
-      button.classList.add('other-month');
+    for (let dayIndex = 0; dayIndex < 7; dayIndex += 1) {
+      const cellDate = new Date(weekStart);
+      cellDate.setDate(weekStart.getDate() + dayIndex);
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = String(cellDate.getDate());
+
+      if (cellDate.getMonth() !== viewDate.getMonth()) {
+        button.classList.add('other-month');
+      }
+      if (isSameDate(cellDate, today)) {
+        button.classList.add('today');
+      }
+      if (isSameDate(cellDate, selected)) {
+        button.classList.add('selected');
+      }
+
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        currentDate = new Date(cellDate);
+        calendarPopoverDate = new Date(currentDate);
+        closeCalendarPopover();
+        render();
+      });
+
+      grid.appendChild(button);
     }
-    if (isSameDate(cellDate, today)) {
-      button.classList.add('today');
-    }
-    if (isSameDate(cellDate, selected)) {
-      button.classList.add('selected');
-    }
-
-    button.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      currentDate = new Date(cellDate);
-      calendarPopoverDate = new Date(currentDate);
-      closeCalendarPopover();
-      render();
-    });
-
-    grid.appendChild(button);
   }
 
   container.appendChild(header);
   container.appendChild(weekdays);
   container.appendChild(grid);
   return container;
-}
-
-function createWeekPicker() {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'day-picker';
-
-  const header = document.createElement('div');
-  header.className = 'day-picker-header';
-
-  const prev = document.createElement('button');
-  prev.type = 'button';
-  prev.textContent = '‹';
-  prev.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    calendarPopoverDate.setDate(1);
-    calendarPopoverDate.setFullYear(calendarPopoverDate.getFullYear() - 1);
-    renderCalendarPopover();
-  });
-
-  const title = document.createElement('h4');
-  title.textContent = calendarPopoverDate.getFullYear();
-
-  const next = document.createElement('button');
-  next.type = 'button';
-  next.textContent = '›';
-  next.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    calendarPopoverDate.setDate(1);
-    calendarPopoverDate.setFullYear(calendarPopoverDate.getFullYear() + 1);
-    renderCalendarPopover();
-  });
-
-  header.appendChild(prev);
-  header.appendChild(title);
-  header.appendChild(next);
-
-  const grid = document.createElement('div');
-  grid.className = 'week-picker';
-
-  const currentWeekStart = getMonday(currentDate);
-  const year = calendarPopoverDate.getFullYear();
-
-  for (let month = 0; month < 12; month += 1) {
-    const weeks = getWeeksForMonth(year, month);
-    if (!weeks.length) continue;
-
-    const monthSection = document.createElement('section');
-    monthSection.className = 'week-picker-month';
-
-    const monthTitle = new Date(year, month, 1).toLocaleDateString('de-DE', {
-      month: 'long',
-    });
-    const heading = document.createElement('h4');
-    heading.textContent = monthTitle;
-    monthSection.appendChild(heading);
-
-    const list = document.createElement('div');
-    list.className = 'week-picker-list';
-
-    weeks.forEach((weekStart) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      const weekNumber = getISOWeek(weekStart);
-      button.textContent = `KW ${weekNumber}`;
-      button.title = `KW ${weekNumber} · ${formatWeekRange(weekStart)}`;
-      if (isSameDate(weekStart, currentWeekStart)) {
-        button.classList.add('selected');
-      }
-      button.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        currentDate = new Date(weekStart);
-        calendarPopoverDate = new Date(currentDate);
-        closeCalendarPopover();
-        render();
-      });
-      list.appendChild(button);
-    });
-
-    monthSection.appendChild(list);
-    grid.appendChild(monthSection);
-  }
-
-  wrapper.appendChild(header);
-  wrapper.appendChild(grid);
-  return wrapper;
 }
 
 function toggleCalendarPopover(event) {
@@ -792,201 +690,6 @@ function handleCalendarKeydown(event) {
   }
 }
 
-function renderCalendarPopover() {
-  if (!calendarPopover) return;
-  calendarPopover.innerHTML = '';
-  if (!calendarOpen) {
-    calendarPopover.classList.add('hidden');
-    return;
-  }
-
-  if (activeView === 'week') {
-    calendarPopover.appendChild(createWeekPicker());
-  } else {
-    calendarPopover.appendChild(createDayPicker());
-  }
-}
-
-function createDayPicker() {
-  const container = document.createElement('div');
-  container.className = 'day-picker';
-
-  const viewDate = new Date(calendarPopoverDate);
-  viewDate.setDate(1);
-
-  const header = document.createElement('div');
-  header.className = 'day-picker-header';
-
-  const prev = document.createElement('button');
-  prev.type = 'button';
-  prev.textContent = '‹';
-  prev.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    calendarPopoverDate.setMonth(calendarPopoverDate.getMonth() - 1);
-    renderCalendarPopover();
-  });
-
-  const title = document.createElement('h4');
-  title.textContent = viewDate.toLocaleDateString('de-DE', {
-    month: 'long',
-    year: 'numeric',
-  });
-
-  const next = document.createElement('button');
-  next.type = 'button';
-  next.textContent = '›';
-  next.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    calendarPopoverDate.setMonth(calendarPopoverDate.getMonth() + 1);
-    renderCalendarPopover();
-  });
-
-  header.appendChild(prev);
-  header.appendChild(title);
-  header.appendChild(next);
-
-  const weekdays = document.createElement('div');
-  weekdays.className = 'day-picker-weekdays';
-  WEEKDAY_LABELS.forEach((label) => {
-    const span = document.createElement('span');
-    span.textContent = label;
-    weekdays.appendChild(span);
-  });
-
-  const grid = document.createElement('div');
-  grid.className = 'day-picker-grid';
-
-  const monthStart = getMonday(viewDate);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const selected = new Date(currentDate);
-  selected.setHours(0, 0, 0, 0);
-
-  for (let index = 0; index < 42; index += 1) {
-    const cellDate = new Date(monthStart);
-    cellDate.setDate(monthStart.getDate() + index);
-
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.textContent = String(cellDate.getDate());
-
-    if (cellDate.getMonth() !== viewDate.getMonth()) {
-      button.classList.add('other-month');
-    }
-    if (isSameDate(cellDate, today)) {
-      button.classList.add('today');
-    }
-    if (isSameDate(cellDate, selected)) {
-      button.classList.add('selected');
-    }
-
-    button.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      currentDate = new Date(cellDate);
-      calendarPopoverDate = new Date(currentDate);
-      closeCalendarPopover();
-      render();
-    });
-
-    grid.appendChild(button);
-  }
-
-  container.appendChild(header);
-  container.appendChild(weekdays);
-  container.appendChild(grid);
-  return container;
-}
-
-function createWeekPicker() {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'day-picker';
-
-  const header = document.createElement('div');
-  header.className = 'day-picker-header';
-
-  const prev = document.createElement('button');
-  prev.type = 'button';
-  prev.textContent = '‹';
-  prev.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    calendarPopoverDate.setFullYear(calendarPopoverDate.getFullYear() - 1);
-    renderCalendarPopover();
-  });
-
-  const title = document.createElement('h4');
-  title.textContent = calendarPopoverDate.getFullYear();
-
-  const next = document.createElement('button');
-  next.type = 'button';
-  next.textContent = '›';
-  next.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    calendarPopoverDate.setFullYear(calendarPopoverDate.getFullYear() + 1);
-    renderCalendarPopover();
-  });
-
-  header.appendChild(prev);
-  header.appendChild(title);
-  header.appendChild(next);
-
-  const grid = document.createElement('div');
-  grid.className = 'week-picker';
-
-  const currentWeekStart = getMonday(currentDate);
-  const year = calendarPopoverDate.getFullYear();
-
-  for (let month = 0; month < 12; month += 1) {
-    const weeks = getWeeksForMonth(year, month);
-    if (!weeks.length) continue;
-
-    const monthSection = document.createElement('section');
-    monthSection.className = 'week-picker-month';
-
-    const monthTitle = new Date(year, month, 1).toLocaleDateString('de-DE', {
-      month: 'long',
-    });
-    const heading = document.createElement('h4');
-    heading.textContent = monthTitle;
-    monthSection.appendChild(heading);
-
-    const list = document.createElement('div');
-    list.className = 'week-picker-list';
-
-    weeks.forEach((weekStart) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      const weekNumber = getISOWeek(weekStart);
-      button.textContent = `KW ${weekNumber}`;
-      button.title = `KW ${weekNumber} · ${formatWeekRange(weekStart)}`;
-      if (isSameDate(weekStart, currentWeekStart)) {
-        button.classList.add('selected');
-      }
-      button.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        currentDate = new Date(weekStart);
-        calendarPopoverDate = new Date(currentDate);
-        closeCalendarPopover();
-        render();
-      });
-      list.appendChild(button);
-    });
-
-    monthSection.appendChild(list);
-    grid.appendChild(monthSection);
-  }
-
-  wrapper.appendChild(header);
-  wrapper.appendChild(grid);
-  return wrapper;
-}
-
-
 function renderDayView() {
   const dayColumns = document.createElement('div');
   dayColumns.className = 'day-columns';
@@ -1034,195 +737,6 @@ function renderDayView() {
 
   dayView.innerHTML = '';
   dayView.appendChild(dayColumns);
-}
-
-function renderWeekView() {
-  const monday = getMonday(currentDate);
-  const layout = document.createElement('div');
-  layout.className = 'week-grid';
-
-  for (let offset = 0; offset < 5; offset += 1) {
-    const day = new Date(monday);
-    day.setDate(monday.getDate() + offset);
-
-    const column = document.createElement('section');
-    column.className = 'week-day-column';
-
-    const header = document.createElement('header');
-    header.className = 'week-day-header';
-
-    const info = document.createElement('div');
-    info.className = 'week-day-info';
-
-    const dayName = document.createElement('span');
-    dayName.className = 'weekday-name';
-    dayName.textContent = day.toLocaleDateString('de-DE', { weekday: 'long' });
-
-    const dayLabel = document.createElement('span');
-    dayLabel.className = 'weekday-date';
-    dayLabel.textContent = day.toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-    });
-
-    info.appendChild(dayName);
-    info.appendChild(dayLabel);
-
-    const actions = document.createElement('div');
-    actions.className = 'week-day-actions';
-
-    const addGeneral = document.createElement('button');
-    addGeneral.type = 'button';
-    addGeneral.className = 'week-add-button';
-    addGeneral.textContent = '+';
-    addGeneral.setAttribute(
-      'aria-label',
-      `Auftrag für ${day.toLocaleDateString('de-DE')} hinzufügen`,
-    );
-    addGeneral.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      openJobModal({ date: formatDateInput(day) });
-    });
-
-    actions.appendChild(addGeneral);
-
-    header.appendChild(info);
-    header.appendChild(actions);
-    column.appendChild(header);
-
-    const categoriesContainer = document.createElement('div');
-    categoriesContainer.className = 'week-categories';
-
-    CATEGORY_ORDER.forEach((category) => {
-      const config = CATEGORY_CONFIG[category];
-      const available = isCategoryAvailable(category, day);
-
-      const group = document.createElement('article');
-      group.className = 'week-category-group';
-      if (!available) group.classList.add('disabled');
-
-      const groupHeader = document.createElement('div');
-      groupHeader.className = 'week-category-header';
-
-      const title = document.createElement('div');
-      title.className = 'week-category-title';
-
-      const heading = document.createElement('h3');
-      heading.textContent = config.title;
-
-      const description = document.createElement('small');
-      description.textContent = config.description;
-
-      title.appendChild(heading);
-      title.appendChild(description);
-
-      const addButton = document.createElement('button');
-      addButton.type = 'button';
-      addButton.className = 'week-add-button';
-      addButton.textContent = '+';
-      addButton.disabled = !available;
-      addButton.setAttribute(
-        'aria-label',
-        `Auftrag im Bereich ${config.title} für ${day.toLocaleDateString('de-DE')} hinzufügen`,
-      );
-      addButton.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        openJobModal({ date: formatDateInput(day), category });
-      });
-
-      groupHeader.appendChild(title);
-      groupHeader.appendChild(addButton);
-
-      const jobs = getJobsForDay(day, category);
-      const jobList = document.createElement('div');
-      jobList.className = 'week-job-list';
-
-      if (!jobs.length) {
-        const empty = document.createElement('p');
-        empty.className = 'week-empty';
-        empty.textContent = available ? 'Keine Aufträge' : 'Nicht verfügbar';
-        jobList.appendChild(empty);
-      } else {
-        jobs.forEach((job) => jobList.appendChild(createWeekJobCard(job)));
-      }
-
-      group.appendChild(groupHeader);
-      group.appendChild(jobList);
-      categoriesContainer.appendChild(group);
-    });
-
-    column.appendChild(categoriesContainer);
-    layout.appendChild(column);
-  }
-
-  weekView.innerHTML = '';
-  weekView.appendChild(layout);
-}
-
-function createWeekJobCard(job) {
-  const card = document.createElement('article');
-  card.className = 'week-job-card';
-
-  const header = document.createElement('div');
-  header.className = 'week-job-card-header';
-
-  const title = document.createElement('h4');
-  title.textContent = job.title;
-
-  const time = document.createElement('span');
-  time.className = 'week-job-time';
-  time.textContent = job.time ? `${job.time} Uhr` : 'Ganztägig';
-
-  header.appendChild(title);
-  header.appendChild(time);
-  card.appendChild(header);
-
-  const customer = document.createElement('p');
-  customer.className = 'week-job-line';
-  customer.textContent = job.customer || '–';
-  card.appendChild(customer);
-
-  const vehicleInfo = [job.vehicle, job.license].filter(Boolean).join(' • ');
-  if (vehicleInfo) {
-    const vehicle = document.createElement('p');
-    vehicle.className = 'week-job-line muted';
-    vehicle.textContent = vehicleInfo;
-    card.appendChild(vehicle);
-  }
-
-  if (job.notes) {
-    const notes = document.createElement('p');
-    notes.className = 'week-job-notes';
-    notes.textContent = job.notes.length > 140 ? `${job.notes.slice(0, 140)}…` : job.notes;
-    card.appendChild(notes);
-  }
-
-  const flags = document.createElement('div');
-  flags.className = 'week-job-flags';
-  SERVICE_FLAGS.forEach((flag) => {
-    if (job[flag.key]) {
-      const badge = document.createElement('span');
-      badge.className = 'week-flag';
-      badge.textContent = flag.label;
-      flags.appendChild(badge);
-    }
-  });
-  if (flags.children.length) {
-    card.appendChild(flags);
-  }
-
-  card.tabIndex = 0;
-  card.addEventListener('click', () => openJobModal(job));
-  card.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      openJobModal(job);
-    }
-  });
-
-  return card;
 }
 
 function renderClipboard() {
@@ -1715,34 +1229,10 @@ function toggleModal(modal, open) {
 }
 
 function changeDay(offset) {
-  const multiplier = activeView === 'week' ? 7 : 1;
   const target = new Date(currentDate);
-  target.setDate(target.getDate() + offset * multiplier);
-  currentDate = activeView === 'week' ? getMonday(target) : target;
+  target.setDate(target.getDate() + offset);
+  currentDate = target;
   calendarPopoverDate = new Date(currentDate);
-  render();
-}
-
-function showDayView() {
-  document.getElementById('day-view-btn').classList.add('active');
-  document.getElementById('week-view-btn').classList.remove('active');
-  dayView.classList.remove('hidden');
-  weekView.classList.add('hidden');
-  activeView = 'day';
-  closeCalendarPopover();
-  calendarPopoverDate = new Date(currentDate);
-  renderHeader();
-}
-
-function showWeekView() {
-  document.getElementById('week-view-btn').classList.add('active');
-  document.getElementById('day-view-btn').classList.remove('active');
-  weekView.classList.remove('hidden');
-  dayView.classList.add('hidden');
-  activeView = 'week';
-  currentDate = getMonday(currentDate);
-  calendarPopoverDate = new Date(currentDate);
-  closeCalendarPopover();
   render();
 }
 
@@ -1824,26 +1314,6 @@ function formatDateInput(date) {
   return formatDateKey(date);
 }
 
-function getWeeksForMonth(year, month) {
-  const weeks = [];
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const seen = new Set();
-
-  for (let day = new Date(firstDay); day <= lastDay; day.setDate(day.getDate() + 1)) {
-    const monday = getMonday(day);
-    if (monday.getFullYear() !== year || monday.getMonth() !== month) {
-      continue;
-    }
-    const key = monday.toISOString().split('T')[0];
-    if (seen.has(key)) continue;
-    seen.add(key);
-    weeks.push(new Date(monday));
-  }
-
-  return weeks;
-}
-
 function isSameDate(a, b) {
   return (
     a.getFullYear() === b.getFullYear() &&
@@ -1860,23 +1330,6 @@ function getISOWeek(date) {
   const diff = temp - yearStart;
   return Math.ceil(((diff / 86400000) + 1) / 7);
 }
-
-function formatWeekRange(start) {
-  const from = new Date(start);
-  const to = new Date(start);
-  to.setDate(from.getDate() + 4);
-  const startLabel = from.toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-  });
-  const endLabel = to.toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-  return `${startLabel} – ${endLabel}`;
-}
-
 
 function getMonday(date) {
   const day = date.getDay() || 7;
