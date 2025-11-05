@@ -796,8 +796,8 @@ function createJobCard(job) {
   const jobTitle = element.querySelector('.job-title');
   jobTitle.textContent = job.title;
 
-  const jobTime = element.querySelector('.job-time');
-  jobTime.textContent = job.time ? `${job.time} Uhr` : 'Ganztägig';
+  const jobTimeChip = element.querySelector('.job-time-chip');
+  jobTimeChip.textContent = job.time ? `${job.time} Uhr` : 'Ganztägig';
 
   const jobMeta = element.querySelector('.job-meta');
   jobMeta.innerHTML = '';
@@ -807,10 +807,36 @@ function createJobCard(job) {
   jobMeta.appendChild(categoryChip);
   jobMeta.appendChild(statusChip);
 
-  element.querySelector('.job-customer').textContent = job.customer || '–';
-  element.querySelector('.job-contact').textContent = job.contact || '–';
-  element.querySelector('.job-vehicle').textContent = job.vehicle || '–';
-  element.querySelector('.job-license').textContent = job.license || '–';
+  const customerValue = job.customer || '–';
+  element.querySelectorAll('.job-customer').forEach((node) => {
+    node.textContent = customerValue;
+  });
+
+  const vehicleValue = job.vehicle || '–';
+  element.querySelectorAll('.job-vehicle').forEach((node) => {
+    node.textContent = vehicleValue;
+  });
+
+  const contactValue = job.contact || '–';
+  element.querySelectorAll('.job-contact').forEach((node) => {
+    node.textContent = contactValue;
+  });
+
+  const licenseValue = job.license || '–';
+  element.querySelectorAll('.job-license').forEach((node) => {
+    node.textContent = licenseValue;
+  });
+
+  const subline = element.querySelector('.job-subline');
+  const sublineBullet = element.querySelector('.job-subline-bullet');
+  if (subline) {
+    const hasCustomer = Boolean(job.customer);
+    const hasVehicle = Boolean(job.vehicle);
+    subline.classList.toggle('hidden', !hasCustomer && !hasVehicle);
+    if (sublineBullet) {
+      sublineBullet.classList.toggle('hidden', !(hasCustomer && hasVehicle));
+    }
+  }
 
   const notesBlock = element.querySelector('.job-notes-block');
   if (job.notes) {
@@ -859,10 +885,7 @@ function createJobCard(job) {
   });
 
   element.tabIndex = 0;
-  element.addEventListener('click', (event) => {
-    if (event.target.closest('.flag-checkbox')) {
-      return;
-    }
+  element.addEventListener('click', () => {
     openJobModal(job);
   });
   element.addEventListener('keydown', (event) => {
@@ -886,78 +909,47 @@ function createMetaChip(label, type) {
 }
 
 function renderServiceFlags(container, job) {
+  if (!container) return;
+
   container.innerHTML = '';
+
+  const selectedFlags = SERVICE_FLAGS.filter((flag) =>
+    coerceBool(job[flag.key]),
+  );
+
+  if (!selectedFlags.length) {
+    container.classList.add('hidden');
+    return;
+  }
+
+  container.classList.remove('hidden');
 
   const label = document.createElement('span');
   label.className = 'label';
   label.textContent = 'Zusatzleistungen';
   container.appendChild(label);
 
-  const list = document.createElement('div');
-  list.className = 'service-checkboxes';
+  const list = document.createElement('ul');
+  list.className = 'job-service-list';
 
-  SERVICE_FLAGS.forEach((flag) => {
-    const wrapper = document.createElement('label');
-    wrapper.className = 'flag-checkbox';
+  selectedFlags.forEach((flag) => {
+    const item = document.createElement('li');
+    item.className = 'job-service-item';
 
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.checked = Boolean(job[flag.key]);
-    input.setAttribute('aria-label', flag.label);
-    input.addEventListener('click', (event) => event.stopPropagation());
-    input.addEventListener('change', (event) =>
-      handleServiceFlagToggle(job, flag.key, event.target),
-    );
+    const icon = document.createElement('span');
+    icon.className = 'job-service-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = '✔';
 
     const text = document.createElement('span');
     text.textContent = flag.label;
 
-    wrapper.appendChild(input);
-    wrapper.appendChild(text);
-    list.appendChild(wrapper);
+    item.appendChild(icon);
+    item.appendChild(text);
+    list.appendChild(item);
   });
 
   container.appendChild(list);
-}
-
-async function handleServiceFlagToggle(job, flagKey, input) {
-  const checked = input.checked;
-  try {
-    const updated = await updateJobPartial(job.id, { [flagKey]: checked });
-    if (updated) {
-      upsertJob(updated);
-      render();
-    }
-  } catch (error) {
-    console.error(error);
-    alert(error.message || 'Änderung konnte nicht gespeichert werden.');
-    input.checked = !checked;
-  }
-}
-
-async function updateJobPartial(jobId, overrides = {}) {
-  const current = findJob(jobId);
-  if (!current) return null;
-
-  const next = { ...current, ...overrides };
-  const formData = new FormData();
-  formData.set('date', next.date);
-  formData.set('time', next.time || '');
-  formData.set('category', next.category);
-  formData.set('title', next.title);
-  formData.set('customer', next.customer || '');
-  formData.set('contact', next.contact || '');
-  formData.set('vehicle', next.vehicle || '');
-  formData.set('license', next.license || '');
-  formData.set('notes', next.notes || '');
-  formData.set('huAu', next.huAu ? '1' : '0');
-  formData.set('carCare', next.carCare ? '1' : '0');
-  formData.set('storage', next.storage ? '1' : '0');
-  formData.set('rentalCar', next.rentalCar ? '1' : '0');
-  formData.set('replaceAttachments', 'false');
-  formData.set('status', next.status);
-
-  return api.updateJob(jobId, formData);
 }
 
 async function cycleJobStatus(job) {
