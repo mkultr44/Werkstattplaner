@@ -552,22 +552,23 @@ button {
   flex: 1;
 }
 
+
 .job-card {
-  background: var(--surface-elevated);
-  border-radius: 1.25rem;
-  padding: 1.2rem 1.4rem;
-  border: 1px solid rgba(37, 99, 235, 0.15);
-  box-shadow: 0 8px 25px rgba(15, 23, 42, 0.08);
+  background: var(--surface);
+  border-radius: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(37, 99, 235, 0.12);
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08);
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.65rem;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .job-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.16);
 }
 
 .job-card:focus-visible {
@@ -579,41 +580,49 @@ button {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
-.job-card-title {
+.job-card-main {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.35rem;
+  min-width: 0;
 }
 
-.job-title {
-  margin: 0;
-  font-size: 1.05rem;
+.job-header-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.job-time-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--primary);
+  font-size: 0.75rem;
   font-weight: 600;
-}
-
-.job-time {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.85rem;
+  letter-spacing: 0.02em;
 }
 
 .job-meta {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0.25rem 0 0;
+  gap: 0.35rem;
 }
 
 .meta-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.65rem;
+  gap: 0.3rem;
+  padding: 0.25rem 0.55rem;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   background: rgba(37, 99, 235, 0.12);
@@ -625,42 +634,93 @@ button {
   color: #fff;
 }
 
-.job-info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 0.75rem 1.5rem;
+.job-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25;
 }
 
-.job-info-item {
+.job-subline {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.job-quick-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0;
+  padding: 0;
+}
+
+.job-quick-info-item {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.15rem;
+  min-width: 0;
 }
 
-.job-info-item .label {
-  font-size: 0.7rem;
+.job-quick-info-item dt {
+  margin: 0;
+  font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
 }
 
-.job-info-item .value {
-  font-size: 0.9rem;
+.job-quick-info-item dd {
+  margin: 0;
+  font-size: 0.85rem;
   font-weight: 500;
   color: var(--text);
+  word-break: break-word;
 }
 
 .job-services {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .job-services .label {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
+}
+
+.job-service-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.6rem;
+}
+
+.job-service-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.6rem;
+  background: rgba(37, 99, 235, 0.12);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary-dark);
+}
+
+.job-service-icon {
+  color: var(--success);
+  font-weight: 700;
+  font-size: 0.75rem;
+  line-height: 1;
 }
 
 .service-checkboxes {
@@ -677,33 +737,6 @@ button {
 
 .service-flags .service-checkboxes {
   margin-top: 0.25rem;
-}
-
-.flag-checkbox {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(37, 99, 235, 0.3);
-  background: rgba(37, 99, 235, 0.08);
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text);
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
-}
-
-.flag-checkbox:hover {
-  background: rgba(37, 99, 235, 0.18);
-  border-color: rgba(37, 99, 235, 0.55);
-}
-
-.flag-checkbox input {
-  width: 1rem;
-  height: 1rem;
-  accent-color: var(--primary);
-  cursor: pointer;
 }
 
 .job-notes-block {

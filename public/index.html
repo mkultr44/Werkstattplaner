@@ -221,37 +221,47 @@
     </div>
 
     <template id="job-card-template">
-      <article class="job-card">
+      <article class="job-card job-card-compact">
         <div class="job-card-header">
-          <div class="job-card-title">
+          <div class="job-card-main">
+            <div class="job-header-row">
+              <span class="job-time-chip"></span>
+              <div class="job-meta"></div>
+            </div>
             <h3 class="job-title"></h3>
-            <p class="job-time"></p>
+            <p class="job-subline">
+              <span class="job-customer"></span>
+              <span class="job-subline-bullet">•</span>
+              <span class="job-vehicle"></span>
+            </p>
           </div>
           <div class="status-toggle" role="button" tabindex="0" aria-label="Status wechseln"></div>
         </div>
-        <div class="job-meta"></div>
-        <div class="job-info-grid">
-          <div class="job-info-item">
-            <span class="label">Kunde</span>
-            <span class="value job-customer"></span>
+        <dl class="job-quick-info">
+          <div class="job-quick-info-item">
+            <dt>Kunde</dt>
+            <dd class="job-customer"></dd>
           </div>
-          <div class="job-info-item">
-            <span class="label">Kontakt</span>
-            <span class="value job-contact"></span>
+          <div class="job-quick-info-item">
+            <dt>Fahrzeug</dt>
+            <dd class="job-vehicle"></dd>
           </div>
-          <div class="job-info-item">
-            <span class="label">Fahrzeug</span>
-            <span class="value job-vehicle"></span>
+          <div class="job-quick-info-item">
+            <dt>Kontakt</dt>
+            <dd class="job-contact"></dd>
           </div>
-          <div class="job-info-item">
-            <span class="label">Kennzeichen</span>
-            <span class="value job-license"></span>
+          <div class="job-quick-info-item">
+            <dt>Kennzeichen</dt>
+            <dd class="job-license"></dd>
           </div>
-        </div>
-        <div class="job-services"></div>
+        </dl>
         <div class="job-notes-block hidden">
           <span class="label">Notizen</span>
           <p class="job-notes"></p>
+        </div>
+        <div class="job-services hidden">
+          <span class="label">Zusatzleistungen</span>
+          <ul class="job-service-list"></ul>
         </div>
         <div class="job-attachments hidden">
           <span class="label">Anhänge</span>
