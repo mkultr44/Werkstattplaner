@@ -637,59 +637,6 @@ function createDayPicker() {
   return container;
 }
 
-function toggleCalendarPopover(event) {
-  if (!calendarPopover) return;
-  event.preventDefault();
-  event.stopPropagation();
-
-  if (calendarOpen) {
-    closeCalendarPopover();
-  } else {
-    openCalendarPopover();
-  }
-}
-
-function openCalendarPopover() {
-  if (!calendarPopover) return;
-  calendarPopoverDate = new Date(currentDate);
-  calendarPopoverDate.setHours(0, 0, 0, 0);
-  calendarOpen = true;
-  calendarPopover.classList.remove('hidden');
-  calendarPopover.setAttribute('aria-hidden', 'false');
-  if (calendarToggle) {
-    calendarToggle.setAttribute('aria-expanded', 'true');
-  }
-  renderCalendarPopover();
-}
-
-function closeCalendarPopover() {
-  if (!calendarPopover) return;
-  if (!calendarOpen) return;
-  calendarOpen = false;
-  calendarPopover.classList.add('hidden');
-  calendarPopover.setAttribute('aria-hidden', 'true');
-  if (calendarToggle) {
-    calendarToggle.setAttribute('aria-expanded', 'false');
-  }
-}
-
-function handleCalendarDismiss(event) {
-  if (!calendarOpen) return;
-  if (
-    (calendarPopover && calendarPopover.contains(event.target)) ||
-    (calendarToggle && calendarToggle.contains(event.target))
-  ) {
-    return;
-  }
-  closeCalendarPopover();
-}
-
-function handleCalendarKeydown(event) {
-  if (event.key === 'Escape' && calendarOpen) {
-    closeCalendarPopover();
-  }
-}
-
 function renderDayView() {
   const dayColumns = document.createElement('div');
   dayColumns.className = 'day-columns';
