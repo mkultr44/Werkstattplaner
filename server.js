@@ -6,6 +6,7 @@ const db = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const TRASH_RETENTION_DAYS = 30;
 
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
@@ -46,11 +47,16 @@ const JOB_COLUMNS = `
   rental_car,
   status,
   created_at,
-  updated_at
+  updated_at,
+  trashed_at
 `;
 
-const selectJobById = db.prepare(`SELECT ${JOB_COLUMNS} FROM jobs WHERE id = ?`);
-const selectAllJobs = db.prepare(`SELECT ${JOB_COLUMNS} FROM jobs ORDER BY date, time`);
+const selectJobById = db.prepare(
+  `SELECT ${JOB_COLUMNS} FROM jobs WHERE id = ? AND trashed_at IS NULL`,
+);
+const selectAllJobs = db.prepare(
+  `SELECT ${JOB_COLUMNS} FROM jobs WHERE trashed_at IS NULL ORDER BY date, time`,
+);
 const insertJobStmt = db.prepare(
   `INSERT INTO jobs (date, time, category, title, customer, contact, vehicle, license, notes, status, hu_au, car_care, storage, rental_car)
    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -78,6 +84,18 @@ const updateStatusStmt = db.prepare(
   'UPDATE jobs SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
 );
 const deleteJobStmt = db.prepare('DELETE FROM jobs WHERE id = ?');
+const trashJobStmt = db.prepare(
+  'UPDATE jobs SET trashed_at = CURRENT_TIMESTAMP WHERE id = ? AND trashed_at IS NULL',
+);
+const restoreJobStmt = db.prepare(
+  'UPDATE jobs SET trashed_at = NULL WHERE id = ? AND trashed_at IS NOT NULL',
+);
+const selectTrashedJobs = db.prepare(
+  `SELECT ${JOB_COLUMNS} FROM jobs WHERE trashed_at IS NOT NULL ORDER BY trashed_at DESC`,
+);
+const selectExpiredJobsStmt = db.prepare(
+  `SELECT id FROM jobs WHERE trashed_at IS NOT NULL AND trashed_at <= datetime('now', ?)`,
+);
 const deleteAttachmentsStmt = db.prepare('DELETE FROM attachments WHERE job_id = ?');
 const selectAttachmentsForJob = db.prepare(
   'SELECT id, original_name, stored_name, mime_type, size FROM attachments WHERE job_id = ? ORDER BY id'
@@ -86,16 +104,48 @@ const insertAttachmentStmt = db.prepare(
   `INSERT INTO attachments (job_id, original_name, stored_name, mime_type, size)
    VALUES (?, ?, ?, ?, ?)`
 );
+const CLIPBOARD_COLUMNS = `
+  id,
+  title,
+  notes,
+  date,
+  time,
+  category,
+  customer,
+  contact,
+  vehicle,
+  license,
+  hu_au,
+  car_care,
+  storage,
+  rental_car,
+  created_at,
+  trashed_at
+`;
+
 const selectClipboard = db.prepare(
-  'SELECT id, title, notes, created_at FROM clipboard ORDER BY created_at DESC, id DESC'
+  `SELECT ${CLIPBOARD_COLUMNS} FROM clipboard WHERE trashed_at IS NULL ORDER BY created_at DESC, id DESC`,
 );
 const selectClipboardById = db.prepare(
-  'SELECT id, title, notes, created_at FROM clipboard WHERE id = ?'
+  `SELECT ${CLIPBOARD_COLUMNS} FROM clipboard WHERE id = ? AND trashed_at IS NULL`,
 );
 const insertClipboardStmt = db.prepare(
-  'INSERT INTO clipboard (title, notes) VALUES (?, ?)'
+  `INSERT INTO clipboard (title, notes, date, time, category, customer, contact, vehicle, license, hu_au, car_care, storage, rental_car)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 );
 const deleteClipboardStmt = db.prepare('DELETE FROM clipboard WHERE id = ?');
+const trashClipboardStmt = db.prepare(
+  'UPDATE clipboard SET trashed_at = CURRENT_TIMESTAMP WHERE id = ? AND trashed_at IS NULL',
+);
+const restoreClipboardStmt = db.prepare(
+  'UPDATE clipboard SET trashed_at = NULL WHERE id = ? AND trashed_at IS NOT NULL',
+);
+const selectTrashedClipboard = db.prepare(
+  `SELECT ${CLIPBOARD_COLUMNS} FROM clipboard WHERE trashed_at IS NOT NULL ORDER BY trashed_at DESC, id DESC`,
+);
+const selectExpiredClipboardStmt = db.prepare(
+  `SELECT id FROM clipboard WHERE trashed_at IS NOT NULL AND trashed_at <= datetime('now', ?)`,
+);
 
 app.get('/api/jobs', (_req, res, next) => {
   try {
@@ -168,14 +218,10 @@ app.delete('/api/jobs/:id', (req, res, next) => {
     if (!existing) {
       throw createHttpError(404, 'Auftrag wurde nicht gefunden.');
     }
-
-    const attachments = selectAttachmentsForJob.all(jobId);
-    const result = deleteJobStmt.run(jobId);
+    const result = trashJobStmt.run(jobId);
     if (!result.changes) {
-      throw createHttpError(404, 'Auftrag wurde nicht gefunden.');
+      throw createHttpError(409, 'Auftrag konnte nicht gelöscht werden.');
     }
-
-    attachments.forEach((attachment) => removeStoredFile(attachment.stored_name));
 
     res.status(204).end();
   } catch (error) {
@@ -194,9 +240,22 @@ app.get('/api/clipboard', (_req, res, next) => {
 
 app.post('/api/clipboard', (req, res, next) => {
   try {
-    const title = ensureText(req.body.title, 'Titel ist erforderlich.');
-    const notes = ensureText(req.body.notes, 'Bitte geben Sie eine Notiz ein.');
-    const result = insertClipboardStmt.run(title, notes);
+    const payload = parseClipboardPayload(req.body);
+    const result = insertClipboardStmt.run(
+      payload.title,
+      payload.notes ?? '',
+      payload.date,
+      payload.time ?? null,
+      payload.category,
+      payload.customer ?? null,
+      payload.contact ?? null,
+      payload.vehicle ?? null,
+      payload.license ?? null,
+      payload.huAu ? 1 : 0,
+      payload.carCare ? 1 : 0,
+      payload.storage ? 1 : 0,
+      payload.rentalCar ? 1 : 0,
+    );
     const item = selectClipboardById.get(result.lastInsertRowid);
     res.status(201).json(mapClipboardRow(item));
   } catch (error) {
@@ -207,10 +266,47 @@ app.post('/api/clipboard', (req, res, next) => {
 app.delete('/api/clipboard/:id', (req, res, next) => {
   try {
     const itemId = parseId(req.params.id);
-    const result = deleteClipboardStmt.run(itemId);
-    if (!result.changes) {
+    const existing = selectClipboardById.get(itemId);
+    if (!existing) {
       throw createHttpError(404, 'Notiz wurde nicht gefunden.');
     }
+    const result = trashClipboardStmt.run(itemId);
+    if (!result.changes) {
+      throw createHttpError(409, 'Notiz konnte nicht gelöscht werden.');
+    }
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/trash', (_req, res, next) => {
+  try {
+    purgeExpiredTrash();
+    const items = listTrashItems();
+    res.json(items);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/trash/:type/:id/restore', (req, res, next) => {
+  try {
+    const type = String(req.params.type || '').toLowerCase();
+    const itemId = parseId(req.params.id);
+    let restored = 0;
+    if (type === 'job') {
+      restored = restoreJobStmt.run(itemId).changes;
+    } else if (type === 'clipboard') {
+      restored = restoreClipboardStmt.run(itemId).changes;
+    } else {
+      throw createHttpError(400, 'Unbekannter Papierkorb-Typ.');
+    }
+
+    if (!restored) {
+      throw createHttpError(404, 'Eintrag wurde nicht gefunden.');
+    }
+
     res.status(204).end();
   } catch (error) {
     next(error);
@@ -230,6 +326,12 @@ app.use((err, _req, res, _next) => {
   const message = err.message || 'Interner Serverfehler.';
   res.status(status).json({ error: message });
 });
+
+purgeExpiredTrash();
+const trashInterval = setInterval(purgeExpiredTrash, 12 * 60 * 60 * 1000);
+if (typeof trashInterval.unref === 'function') {
+  trashInterval.unref();
+}
 
 if (require.main === module) {
   app.listen(PORT, () => {
@@ -345,8 +447,81 @@ function mapClipboardRow(row) {
   return {
     id: row.id,
     title: row.title,
-    notes: row.notes,
+    notes: row.notes || '',
+    date: row.date || null,
+    time: row.time || '',
+    category: row.category || 'routine',
+    customer: row.customer || '',
+    contact: row.contact || '',
+    vehicle: row.vehicle || '',
+    license: row.license || '',
+    huAu: Boolean(row.hu_au),
+    carCare: Boolean(row.car_care),
+    storage: Boolean(row.storage),
+    rentalCar: Boolean(row.rental_car),
     createdAt: row.created_at,
+  };
+}
+
+function listTrashItems() {
+  const jobs = selectTrashedJobs.all().map((row) => mapTrashItem(row, 'job'));
+  const clipboard = selectTrashedClipboard.all().map((row) => mapTrashItem(row, 'clipboard'));
+  return [...jobs, ...clipboard].sort(
+    (a, b) => new Date(b.trashedAt || 0).getTime() - new Date(a.trashedAt || 0).getTime(),
+  );
+}
+
+function mapTrashItem(row, type) {
+  return {
+    id: row.id,
+    type,
+    title: row.title,
+    date: row.date || null,
+    time: row.time || '',
+    category: row.category || 'routine',
+    customer: row.customer || '',
+    contact: row.contact || '',
+    vehicle: row.vehicle || '',
+    license: row.license || '',
+    notes: row.notes || '',
+    trashedAt: row.trashed_at || null,
+    daysRemaining: calculateDaysRemaining(row.trashed_at),
+  };
+}
+
+function parseClipboardPayload(body) {
+  const payload = parseJobPayload(body, { defaultStatus: 'pending' });
+  const {
+    status: _ignoredStatus,
+    date,
+    time,
+    category,
+    title,
+    customer,
+    contact,
+    vehicle,
+    license,
+    notes,
+    huAu,
+    carCare,
+    storage,
+    rentalCar,
+  } = payload;
+
+  return {
+    date,
+    time,
+    category,
+    title,
+    customer,
+    contact,
+    vehicle,
+    license,
+    notes,
+    huAu,
+    carCare,
+    storage,
+    rentalCar,
   };
 }
 
@@ -387,6 +562,17 @@ function normalizeBoolean(value) {
     return ['1', 'true', 'yes', 'on'].includes(normalized);
   }
   return false;
+}
+
+function calculateDaysRemaining(trashedAt) {
+  if (!trashedAt) return TRASH_RETENTION_DAYS;
+  const trashedDate = new Date(trashedAt);
+  if (Number.isNaN(trashedDate.getTime())) {
+    return TRASH_RETENTION_DAYS;
+  }
+  const diffMs = Date.now() - trashedDate.getTime();
+  const daysElapsed = Math.floor(diffMs / 86400000);
+  return Math.max(0, TRASH_RETENTION_DAYS - daysElapsed);
 }
 
 function firstDefined(...values) {
@@ -482,4 +668,24 @@ function removeStoredFile(filename) {
       console.error(`Datei ${filePath} konnte nicht gelöscht werden:`, error);
     }
   });
+}
+
+function purgeExpiredTrash() {
+  const cutoff = `-${TRASH_RETENTION_DAYS} days`;
+  const expiredJobs = selectExpiredJobsStmt.all(cutoff);
+  expiredJobs.forEach(({ id }) => permanentlyDeleteJob(id));
+  const expiredClipboard = selectExpiredClipboardStmt.all(cutoff);
+  expiredClipboard.forEach(({ id }) => permanentlyDeleteClipboard(id));
+}
+
+function permanentlyDeleteJob(jobId) {
+  const attachments = selectAttachmentsForJob.all(jobId);
+  const result = deleteJobStmt.run(jobId);
+  if (result.changes) {
+    attachments.forEach((attachment) => removeStoredFile(attachment.stored_name));
+  }
+}
+
+function permanentlyDeleteClipboard(itemId) {
+  deleteClipboardStmt.run(itemId);
 }

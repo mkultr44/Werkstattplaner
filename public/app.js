@@ -34,6 +34,7 @@ const SERVICE_FLAGS = [
   { key: 'storage', label: 'Einlagerung' },
   { key: 'rentalCar', label: 'Mietwagen' },
 ];
+const TRASH_RETENTION_DAYS = 30;
 
 
 // === NRW Holidays Utilities ===
@@ -134,6 +135,7 @@ const calendarToggle = document.getElementById('calendar-toggle');
 const calendarPopover = document.getElementById('calendar-popover');
 const jobModal = document.getElementById('job-modal');
 const clipboardModal = document.getElementById('clipboard-modal');
+const trashModal = document.getElementById('trash-modal');
 const jobForm = document.getElementById('job-form');
 const clipboardForm = document.getElementById('clipboard-form');
 const fileInput = document.getElementById('job-files');
@@ -142,6 +144,10 @@ const modalTitle = document.getElementById('modal-title');
 const deleteJobButton = document.getElementById('delete-job-btn');
 const clipboardList = document.getElementById('clipboard-list');
 const timeSelect = document.getElementById('job-time');
+const clipboardTimeSelect = document.getElementById('clipboard-time');
+const trashButton = document.getElementById('trash-button');
+const trashCountBadge = document.getElementById('trash-count-badge');
+const trashList = document.getElementById('trash-list');
 const textBlockModal = document.getElementById('text-block-modal');
 const textBlockButton = document.getElementById('text-blocks-btn');
 const textBlockSearchInput = document.getElementById('text-block-search');
@@ -152,6 +158,7 @@ const state = {
   jobsByDay: new Map(),
   jobsById: new Map(),
   clipboard: [],
+  trash: [],
 };
 
 let currentDate = new Date();
@@ -193,6 +200,11 @@ const api = {
     apiRequest(`/api/clipboard/${id}`, {
       method: 'DELETE',
     }),
+  listTrash: () => apiRequest('/api/trash'),
+  restoreTrash: (type, id) =>
+    apiRequest(`/api/trash/${type}/${id}/restore`, {
+      method: 'POST',
+    }),
 };
 
 bindUI();
@@ -201,7 +213,7 @@ bootstrap();
 
 async function bootstrap() {
   try {
-    await Promise.all([loadJobsFromServer(), loadClipboardFromServer()]);
+    await Promise.all([loadJobsFromServer(), loadClipboardFromServer(), loadTrashFromServer()]);
     render();
   } catch (error) {
     console.error(error);
@@ -220,7 +232,8 @@ function bindUI() {
     if (rentalInput) rentalInput.checked = !!(job?.rentalCar || job?.rentalCar === 1 || job?.rentalCar === '1' || job?.rentalCar === true);
   }catch(e){}
 })(window.currentJob||{});
-  populateTimeOptions();
+  populateTimeOptions(timeSelect);
+  populateTimeOptions(clipboardTimeSelect);
   initializeTextBlocks();
   document.getElementById('prev-day').addEventListener('click', () => changeDay(-1));
   document.getElementById('next-day').addEventListener('click', () => changeDay(1));
@@ -294,6 +307,22 @@ function bindUI() {
   if (textBlockModal) {
     textBlockModal.addEventListener('click', (event) => {
       if (event.target === textBlockModal) closeTextBlockModal();
+    });
+  }
+
+  if (trashButton) {
+    trashButton.addEventListener('click', openTrashModal);
+  }
+
+  document.querySelectorAll('[data-close-trash]').forEach((button) => {
+    button.addEventListener('click', closeTrashModal);
+  });
+
+  if (trashModal) {
+    trashModal.addEventListener('click', (event) => {
+      if (event.target === trashModal) {
+        closeTrashModal();
+      }
     });
   }
 }
@@ -459,14 +488,14 @@ function closeTextBlockModal(options = {}) {
   }
 }
 
-function populateTimeOptions() {
-  if (!timeSelect) return;
-  timeSelect.innerHTML = '';
+function populateTimeOptions(selectElement) {
+  if (!selectElement) return;
+  selectElement.innerHTML = '';
 
   const defaultOption = document.createElement('option');
   defaultOption.value = '';
   defaultOption.textContent = 'Ganztägig';
-  timeSelect.appendChild(defaultOption);
+  selectElement.appendChild(defaultOption);
 
   for (let hour = 0; hour < 24; hour += 1) {
     for (let minute = 0; minute < 60; minute += 30) {
@@ -474,7 +503,7 @@ function populateTimeOptions() {
       const option = document.createElement('option');
       option.value = value;
       option.textContent = `${value} Uhr`;
-      timeSelect.appendChild(option);
+      selectElement.appendChild(option);
     }
   }
 }
@@ -483,6 +512,10 @@ function render() {
   renderHeader();
   renderDayView();
   renderClipboard();
+  renderTrashButton();
+  if (trashModal && !trashModal.classList.contains('hidden')) {
+    renderTrashModal();
+  }
   if (calendarOpen) {
     renderCalendarPopover();
   }
@@ -753,7 +786,7 @@ function renderClipboard() {
   if (!state.clipboard.length) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
-    empty.textContent = 'Hier können Sie Aufgaben oder Notizen ablegen.';
+    empty.textContent = 'Hier können Sie Termine vorbereiten und später übernehmen.';
     clipboardList.appendChild(empty);
     return;
   }
@@ -779,6 +812,11 @@ function renderClipboard() {
         await api.deleteClipboard(item.id);
         state.clipboard = state.clipboard.filter((note) => note.id !== item.id);
         renderClipboard();
+        await loadTrashFromServer();
+        renderTrashButton();
+        if (trashModal && !trashModal.classList.contains('hidden')) {
+          renderTrashModal();
+        }
       } catch (error) {
         console.error(error);
         alert(error.message || 'Notiz konnte nicht entfernt werden.');
@@ -788,13 +826,191 @@ function renderClipboard() {
     header.appendChild(title);
     header.appendChild(removeButton);
 
-    const body = document.createElement('p');
-    body.textContent = item.notes;
-
     card.appendChild(header);
-    card.appendChild(body);
+
+    const meta = document.createElement('div');
+    meta.className = 'clipboard-meta';
+    const dateLabel = formatClipboardDateLabel(item.date);
+    if (dateLabel) {
+      meta.appendChild(createMetaChip(dateLabel));
+    }
+
+    const timeLabel = item.time ? `${item.time} Uhr` : 'Ganztägig';
+    meta.appendChild(createMetaChip(timeLabel));
+
+    const categoryLabel = CATEGORY_CONFIG[item.category]?.title || item.category;
+    meta.appendChild(createMetaChip(categoryLabel));
+    card.appendChild(meta);
+
+    const details = document.createElement('dl');
+    details.className = 'clipboard-details';
+    appendClipboardDetail(details, 'Kunde', item.customer || '—');
+    if (item.contact) {
+      appendClipboardDetail(details, 'Kontakt', item.contact);
+    }
+    appendClipboardDetail(details, 'Fahrzeug', item.vehicle || '—');
+    appendClipboardDetail(details, 'Kennzeichen', item.license || '—');
+    card.appendChild(details);
+
+    const selectedFlags = SERVICE_FLAGS.filter((flag) => coerceBool(item[flag.key]));
+    if (selectedFlags.length) {
+      const flagList = document.createElement('div');
+      flagList.className = 'clipboard-flags';
+      selectedFlags.forEach((flag) => {
+        const chip = document.createElement('span');
+        chip.className = 'clipboard-flag-chip';
+        chip.textContent = flag.label;
+        flagList.appendChild(chip);
+      });
+      card.appendChild(flagList);
+    }
+
+    if (item.notes) {
+      const notes = document.createElement('p');
+      notes.className = 'clipboard-notes';
+      notes.textContent = item.notes;
+      card.appendChild(notes);
+    }
+
     clipboardList.appendChild(card);
   });
+}
+
+function renderTrashButton() {
+  if (!trashButton || !trashCountBadge) return;
+  const count = state.trash.length;
+  trashCountBadge.textContent = String(count);
+  trashCountBadge.classList.toggle('hidden', count === 0);
+}
+
+function renderTrashModal() {
+  if (!trashList) return;
+  trashList.innerHTML = '';
+
+  if (!state.trash.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'Der Papierkorb ist leer.';
+    trashList.appendChild(empty);
+    return;
+  }
+
+  state.trash.forEach((item) => {
+    const card = document.createElement('article');
+    card.className = 'trash-card';
+
+    const header = document.createElement('header');
+    const title = document.createElement('h3');
+    title.className = 'trash-card-title';
+    title.textContent = item.title;
+    const typeLabel = document.createElement('span');
+    typeLabel.className = 'meta-chip';
+    typeLabel.textContent = item.type === 'job' ? 'Werkstattauftrag' : 'Clipboard-Eintrag';
+    header.appendChild(title);
+    header.appendChild(typeLabel);
+    card.appendChild(header);
+
+    const meta = document.createElement('div');
+    meta.className = 'trash-card-meta';
+    const dateLabel = formatClipboardDateLabel(item.date);
+    if (dateLabel) {
+      meta.appendChild(createMetaChip(dateLabel));
+    }
+    const timeLabel = item.time ? `${item.time} Uhr` : 'Ganztägig';
+    meta.appendChild(createMetaChip(timeLabel));
+    const categoryLabel = CATEGORY_CONFIG[item.category]?.title || item.category;
+    meta.appendChild(createMetaChip(categoryLabel));
+    card.appendChild(meta);
+
+    const details = document.createElement('dl');
+    details.className = 'trash-card-details';
+    appendClipboardDetail(details, 'Kunde', item.customer || '—');
+    appendClipboardDetail(details, 'Kontakt', item.contact || '—');
+    appendClipboardDetail(details, 'Fahrzeug', item.vehicle || '—');
+    appendClipboardDetail(details, 'Kennzeichen', item.license || '—');
+    card.appendChild(details);
+
+    if (item.notes) {
+      const noteBlock = document.createElement('p');
+      noteBlock.className = 'clipboard-notes';
+      noteBlock.textContent = item.notes;
+      card.appendChild(noteBlock);
+    }
+
+    const footer = document.createElement('footer');
+    const remaining = document.createElement('span');
+    remaining.className = 'danger-text';
+    const days = item.daysRemaining ?? TRASH_RETENTION_DAYS;
+    remaining.textContent =
+      days === 1
+        ? 'Löscht sich in 1 Tag endgültig'
+        : `Löscht sich in ${days} Tagen endgültig`;
+    footer.appendChild(remaining);
+
+    const restoreButton = document.createElement('button');
+    restoreButton.className = 'primary-button';
+    restoreButton.type = 'button';
+    restoreButton.textContent = 'Wiederherstellen';
+    restoreButton.addEventListener('click', () => handleTrashRestore(item, restoreButton));
+
+    footer.appendChild(restoreButton);
+    card.appendChild(footer);
+
+    trashList.appendChild(card);
+  });
+}
+
+function formatClipboardDateLabel(value) {
+  if (!value) return '';
+  const parts = value.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) {
+    return value;
+  }
+
+  const [year, month, day] = parts;
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString('de-DE', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
+
+function appendClipboardDetail(container, label, value) {
+  if (!container) return;
+  const dt = document.createElement('dt');
+  dt.textContent = label;
+  const dd = document.createElement('dd');
+  dd.textContent = value || '—';
+  container.appendChild(dt);
+  container.appendChild(dd);
+}
+
+function buildJobPayloadFromFormData(formData, options = {}) {
+  const fallbackDate = options.defaultDate || formatDateInput(currentDate);
+  const getText = (value) => (typeof value === 'string' ? value.trim() : '');
+  const categoryValue = getText(formData.get('category')) || 'routine';
+
+  return {
+    date: getText(formData.get('date')) || fallbackDate,
+    time: getText(formData.get('time')),
+    category: categoryValue,
+    title: getText(formData.get('title')),
+    customer: getText(formData.get('customer')),
+    contact: getText(formData.get('contact')),
+    vehicle: getText(formData.get('vehicle')),
+    license: getText(formData.get('license')),
+    notes: getText(formData.get('notes')),
+    huAu: formData.get('huAu') === '1',
+    carCare: formData.get('carCare') === '1',
+    storage: coerceBool(formData.get('storage')),
+    rentalCar: coerceBool(formData.get('rentalCar')),
+  };
 }
 
 function createJobCard(job) {
@@ -978,21 +1194,7 @@ async function handleJobSubmit(event) {
   event.preventDefault();
   const formData = new FormData(jobForm);
 
-  const payload = {
-    date: formData.get('date') || formatDateInput(currentDate),
-    time: formData.get('time')?.trim() || '',
-    category: formData.get('category') || 'routine',
-    title: formData.get('title')?.trim() || '',
-    customer: formData.get('customer')?.trim() || '',
-    contact: formData.get('contact')?.trim() || '',
-    vehicle: formData.get('vehicle')?.trim() || '',
-    license: formData.get('license')?.trim() || '',
-    notes: formData.get('notes')?.trim() || '',
-    huAu: formData.get('huAu') === '1',
-    carCare: formData.get('carCare') === '1',
-    storage: coerceBool(formData.get('storage')),
-    rentalCar: coerceBool(formData.get('rentalCar')),
-  };
+  const payload = buildJobPayloadFromFormData(formData);
 
   if (!payload.title) {
     alert('Bitte geben Sie eine Kurzbeschreibung für den Auftrag an.');
@@ -1040,8 +1242,19 @@ async function handleJobSubmit(event) {
 
     if (clipboardRequested) {
       const clipboardItem = await api.createClipboard({
+        date: job.date,
+        time: job.time,
+        category: job.category,
         title: job.title,
-        notes: `${job.customer || 'Kunde'} • ${new Date(job.date).toLocaleDateString('de-DE')}`,
+        customer: job.customer,
+        contact: job.contact,
+        vehicle: job.vehicle,
+        license: job.license,
+        notes: job.notes,
+        huAu: job.huAu,
+        carCare: job.carCare,
+        storage: job.storage,
+        rentalCar: job.rentalCar,
       });
       state.clipboard.push(clipboardItem);
     }
@@ -1057,10 +1270,17 @@ async function handleJobSubmit(event) {
 async function handleClipboardSubmit(event) {
   event.preventDefault();
   const formData = new FormData(clipboardForm);
-  const payload = {
-    title: formData.get('title')?.trim() || 'Neue Notiz',
-    notes: formData.get('notes')?.trim() || '',
-  };
+  const payload = buildJobPayloadFromFormData(formData);
+
+  if (!payload.title) {
+    alert('Bitte geben Sie eine Kurzbeschreibung an.');
+    return;
+  }
+
+  if (!payload.customer) {
+    alert('Bitte geben Sie einen Kundennamen an.');
+    return;
+  }
 
   try {
     const item = await api.createClipboard(payload);
@@ -1070,6 +1290,31 @@ async function handleClipboardSubmit(event) {
   } catch (error) {
     console.error(error);
     alert(error.message || 'Notiz konnte nicht gespeichert werden.');
+  }
+}
+
+async function handleTrashRestore(item, button) {
+  if (!item) return;
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    await api.restoreTrash(item.type, item.id);
+    await loadTrashFromServer();
+    if (item.type === 'job') {
+      await loadJobsFromServer();
+    } else {
+      await loadClipboardFromServer();
+    }
+    render();
+    renderTrashModal();
+  } catch (error) {
+    console.error(error);
+    alert(error.message || 'Eintrag konnte nicht wiederhergestellt werden.');
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
   }
 }
 
@@ -1181,14 +1426,43 @@ function openJobModal(job = {}) {
   deleteJobButton.classList.toggle('hidden', !editingJobId);
 }
 
-function openClipboardModal() {
+function openClipboardModal(preset = {}) {
+  if (!clipboardForm) return;
   clipboardForm.reset();
+  const dateField = clipboardForm.elements.date;
+  const categoryField = clipboardForm.elements.category;
+  const timeField = clipboardForm.elements.time;
+
+  if (dateField) {
+    dateField.value = preset.date || formatDateInput(currentDate);
+  }
+  if (categoryField) {
+    categoryField.value = preset.category || 'routine';
+  }
+  if (timeField && preset.time) {
+    timeField.value = preset.time;
+  }
+
   toggleModal(clipboardModal, true);
+  clipboardForm.elements?.title?.focus();
+}
+
+function openTrashModal() {
+  if (!trashModal) return;
+  renderTrashModal();
+  toggleModal(trashModal, true);
+}
+
+function closeTrashModal() {
+  if (!trashModal) return;
+  toggleModal(trashModal, false);
 }
 
 async function deleteJob(jobId) {
   await api.deleteJob(jobId);
   removeJobFromState(jobId);
+  await loadTrashFromServer();
+  renderTrashButton();
 }
 
 async function handleDeleteJob() {
@@ -1213,7 +1487,9 @@ function closeModals() {
   jobForm.reset();
   fileInput.value = '';
   filePreview.innerHTML = '';
-  clipboardForm.reset();
+  if (clipboardForm) {
+    clipboardForm.reset();
+  }
   deleteJobButton.classList.add('hidden');
   toggleModal(jobModal, false);
   toggleModal(clipboardModal, false);
@@ -1352,6 +1628,10 @@ async function loadJobsFromServer() {
 
 async function loadClipboardFromServer() {
   state.clipboard = await api.listClipboard();
+}
+
+async function loadTrashFromServer() {
+  state.trash = await api.listTrash();
 }
 
 async function apiRequest(url, options = {}) {

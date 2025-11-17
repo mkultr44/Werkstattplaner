@@ -170,18 +170,107 @@
     <div id="clipboard-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content">
         <header>
-          <h2>Clipboard-Notiz</h2>
+          <h2>Clipboard-Termin</h2>
           <button class="icon-button" data-close-modal type="button">✕</button>
         </header>
         <form id="clipboard-form">
-          <div class="form-field">
-            <label for="clipboard-title">Titel</label>
-            <input type="text" id="clipboard-title" name="title" required />
-          </div>
-          <div class="form-field">
-            <label for="clipboard-notes">Notizen</label>
-            <textarea id="clipboard-notes" name="notes" rows="4" required></textarea>
-          </div>
+          <section class="form-grid">
+            <div class="form-field">
+              <label for="clipboard-date">Datum</label>
+              <input type="date" id="clipboard-date" name="date" required />
+            </div>
+            <div class="form-field">
+              <label for="clipboard-time">Uhrzeit</label>
+              <select id="clipboard-time" name="time">
+                <option value="">Ganztägig</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label for="clipboard-category">Arbeitsbereich</label>
+              <select id="clipboard-category" name="category" required>
+                <option value="routine">Routinearbeiten</option>
+                <option value="inspection">TÜV / AU</option>
+                <option value="major">Werkstattaufträge</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label for="clipboard-title">Kurzbeschreibung</label>
+              <input
+                type="text"
+                id="clipboard-title"
+                name="title"
+                required
+                placeholder="z. B. Ölwechsel &amp; Filter"
+              />
+            </div>
+            <div class="form-field">
+              <label for="clipboard-customer">Kunde</label>
+              <input
+                type="text"
+                id="clipboard-customer"
+                name="customer"
+                required
+                placeholder="Vor- und Nachname"
+              />
+            </div>
+            <div class="form-field">
+              <label for="clipboard-contact">Kontakt</label>
+              <input
+                type="text"
+                id="clipboard-contact"
+                name="contact"
+                placeholder="Telefon oder E-Mail"
+              />
+            </div>
+            <div class="form-field">
+              <label for="clipboard-vehicle">Fahrzeug</label>
+              <input
+                type="text"
+                id="clipboard-vehicle"
+                name="vehicle"
+                placeholder="Hersteller / Modell"
+              />
+            </div>
+            <div class="form-field">
+              <label for="clipboard-license">Kennzeichen</label>
+              <input
+                type="text"
+                id="clipboard-license"
+                name="license"
+                placeholder="z. B. AB-XY 123"
+              />
+            </div>
+            <div class="form-field span-2">
+              <label for="clipboard-notes">Beschreibung</label>
+              <textarea
+                id="clipboard-notes"
+                name="notes"
+                rows="3"
+                placeholder="Zusätzliche Details"
+              ></textarea>
+            </div>
+            <div class="form-field span-2 service-flags">
+              <span class="label">Zusatzleistungen</span>
+              <div class="service-checkboxes">
+                <label class="checkbox">
+                  <input type="checkbox" id="clipboard-hu-au" name="huAu" value="1" />
+                  <span>HU / AU</span>
+                </label>
+                <label class="checkbox">
+                  <input type="checkbox" id="clipboard-car-care" name="carCare" value="1" />
+                  <span>Wagenpflege</span>
+                </label>
+                <label class="checkbox">
+                  <input type="checkbox" id="clipboard-storage" name="storage" value="1" />
+                  <span>Einlagerung</span>
+                </label>
+                <label class="checkbox">
+                  <input type="checkbox" id="clipboard-rental-car" name="rentalCar" value="1" />
+                  <span>Mietwagen</span>
+                </label>
+              </div>
+            </div>
+          </section>
           <footer class="modal-actions">
             <div class="spacer"></div>
             <button class="ghost-button" data-close-modal type="button">Abbrechen</button>
@@ -216,6 +305,25 @@
         <footer class="modal-actions">
           <div class="spacer"></div>
           <button class="ghost-button" data-close-text-block type="button">Schliessen</button>
+        </footer>
+      </div>
+    </div>
+
+    <button id="trash-button" class="floating-trash-button" type="button" aria-label="Papierkorb öffnen">
+      <span class="trash-icon" aria-hidden="true">🗑️</span>
+      <span id="trash-count-badge" class="trash-count-badge hidden">0</span>
+    </button>
+
+    <div id="trash-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content trash-modal-content">
+        <header>
+          <h2>Papierkorb</h2>
+          <button class="icon-button" data-close-trash type="button">✕</button>
+        </header>
+        <div id="trash-list" class="trash-list"></div>
+        <footer class="modal-actions">
+          <div class="spacer"></div>
+          <button class="ghost-button" data-close-trash type="button">Schließen</button>
         </footer>
       </div>
     </div>
