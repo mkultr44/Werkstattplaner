@@ -1,0 +1,234 @@
+:root {
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --surface-elevated: #eef2ff;
+  --border: #d9deeb;
+  --text: #1f2937;
+  --text-muted: #6b7280;
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --danger: #ef4444;
+  --warning: #facc15;
+  --success: #22c55e;
+  --shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+  font-size: 15px;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+#app {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  height: 100vh;
+}
+
+aside.clipboard {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.main-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem 0.5rem;
+}
+
+.view-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--primary);
+  margin: 0;
+}
+
+.date-navigation > button {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: none;
+  background: var(--surface);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.calendar-popover {
+  padding: 0.75rem;
+  min-width: 240px;
+}
+
+.day-picker button {
+  height: 1.8rem;
+  border-radius: 0.4rem;
+}
+
+.day-picker-grid button.selected {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
+}
+
+.planner-view {
+  padding: 0.75rem 1.25rem 2rem;
+  display: flex;
+  gap: 1rem;
+}
+
+.day-column header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.5rem;
+}
+
+.day-column h2 {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.job-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* --- Karten kompakt --- */
+.job-card {
+  background: var(--surface);
+  border-radius: 0.8rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid rgba(37, 99, 235, 0.1);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+.job-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.job-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.job-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.meta-chip {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.65rem;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.meta-chip-status {
+  background: var(--status-color, var(--primary));
+  color: #fff;
+}
+
+.job-subline {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.job-quick-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.25rem 0.5rem;
+}
+
+.job-quick-info-item dt {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.job-quick-info-item dd {
+  font-size: 0.8rem;
+  margin: 0;
+  color: var(--text);
+}
+
+/* Zusatzleistungen kompakt */
+.job-services {
+  gap: 0.2rem;
+}
+
+.job-service-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.4rem;
+  margin: 0;
+  padding: 0;
+}
+
+.job-service-item {
+  padding: 0.25rem 0.4rem;
+  border-radius: 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--primary-dark);
+}
+
+.job-notes {
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+/* Modal dichter */
+.modal-content {
+  padding: 1.2rem;
+  max-width: 640px;
+  gap: 1rem;
+}
+
+.form-grid {
+  gap: 0.75rem 1rem;
+}
+
+.form-field input,
+.form-field textarea,
+.form-field select {
+  padding: 0.5rem 0.6rem;
+  font-size: 0.9rem;
+}
+
+/* Status-Button kleiner */
+.status-toggle {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 0.4rem;
+}
+
+.file-chip {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.4rem;
+}

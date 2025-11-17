@@ -1402,74 +1402,7 @@ function structuredCloneSafe(value) {
 }
 
       const holidayName = getHolidayForDate(cellDate);
-      const weekday = cellDate.getDay();
-      if (weekday === 0) {
-        button.classList.add('sunday');
-        button.setAttribute('title', (holidayName ? holidayName + ' & Sonntag' : 'Sonntag'));
-      } else if (weekday === 6) {
-        button.classList.add('weekend');
-      }
-
       if (holidayName) {
         button.classList.add('holiday');
         button.setAttribute('title', holidayName);
       }
-
-
-
-// === Clipboard Job Integration ===
-async function handleClipboardSubmit(event) {
-  event.preventDefault();
-  const form = event.target.closest('form');
-  const data = Object.fromEntries(new FormData(form).entries());
-  data.category = 'clipboard';
-  if (!data.title || data.title.trim() === '') {
-    alert('Bitte einen Titel eingeben.');
-    return;
-  }
-  try {
-    await api.createJob(data);
-    renderClipboard();
-    form.reset();
-  } catch (err) {
-    console.error('Fehler beim Anlegen des Clipboard-Eintrags:', err);
-  }
-}
-
-async function renderClipboard() {
-  const container = document.getElementById('clipboard-list');
-  if (!container) return;
-  container.innerHTML = '';
-  try {
-    const jobs = await api.getJobs();
-    const clips = jobs.filter(j => j.category === 'clipboard');
-    if (clips.length === 0) {
-      container.innerHTML = '<div class="empty">Keine Clipboard-Einträge vorhanden.</div>';
-      return;
-    }
-    clips.forEach(job => {
-      const el = document.createElement('div');
-      el.className = 'clipboard-item';
-      el.innerHTML = `
-        <div class="title">${job.title}</div>
-        <div class="meta">${job.customer || ''} ${job.vehicle || ''}</div>
-        <div class="actions">
-          <button class="delete-btn" data-id="${job.id}">✕</button>
-        </div>`;
-      el.querySelector('.delete-btn').addEventListener('click', async () => {
-        if (!confirm('Eintrag löschen?')) return;
-        await api.deleteJob(job.id);
-        renderClipboard();
-      });
-      container.appendChild(el);
-    });
-  } catch (err) {
-    console.error('Fehler beim Laden der Clipboard-Einträge:', err);
-  }
-}
-
-document.querySelectorAll('[data-action="clipboard-submit"]').forEach(btn => {
-  btn.addEventListener('click', handleClipboardSubmit);
-});
-
-document.addEventListener('DOMContentLoaded', renderClipboard);

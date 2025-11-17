@@ -35,47 +35,6 @@ const SERVICE_FLAGS = [
   { key: 'rentalCar', label: 'Mietwagen' },
 ];
 
-
-// === NRW Holidays Utilities ===
-function easterDate(year) {
-  const f = Math.floor;
-  const G = year % 19;
-  const C = Math.floor(year / 100);
-  const H = (C - Math.floor(C / 4) - Math.floor((8 * C + 13) / 25) + 19 * G + 15) % 30;
-  const I = H - Math.floor(H / 28) * (1 - Math.floor(29 / (H + 1)) * Math.floor((21 - G) / 11));
-  const J = (year + Math.floor(year / 4) - Math.floor(year / 100) + Math.floor(year / 400)) % 7;
-  const L = I - J;
-  const month = 3 + Math.floor((L + 40) / 44);
-  const day = L + 28 - 31 * Math.floor(month / 4);
-  return new Date(year, month - 1, day);
-}
-function getNRWHolidays(year) {
-  const e = easterDate(year);
-  const add = (d, days) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + days);
-  return {
-    'Neujahrstag': new Date(year, 0, 1),
-    'Karfreitag': add(e, -2),
-    'Ostermontag': add(e, 1),
-    'Tag der Arbeit': new Date(year, 4, 1),
-    'Christi Himmelfahrt': add(e, 39),
-    'Pfingstmontag': add(e, 50),
-    'Fronleichnam': add(e, 60),
-    'Tag der Deutschen Einheit': new Date(year, 9, 3),
-    'Allerheiligen': new Date(year, 10, 1),
-    '1. Weihnachtstag': new Date(year, 11, 25),
-    '2. Weihnachtstag': new Date(year, 11, 26),
-  };
-}
-function getHolidayForDate(date) {
-  const holidays = getNRWHolidays(date.getFullYear());
-  for (const [name, d] of Object.entries(holidays)) {
-    if (d.getDate() === date.getDate() && d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear()) {
-      return name;
-    }
-  }
-  return null;
-}
-
 const WEEKDAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
 const TEXT_BLOCK_CATEGORIES = [
@@ -498,19 +457,6 @@ function renderHeader() {
     month: 'long',
     day: 'numeric',
   });
-  // Show NRW holiday name under the date if applicable
-  const holidayName = getHolidayForDate(currentDate);
-  const holidayLabel = document.getElementById('selected-date-holiday');
-  if (holidayLabel) {
-    if (holidayName) {
-      holidayLabel.textContent = holidayName + ' (Feiertag)';
-      holidayLabel.classList.remove('hidden');
-    } else {
-      holidayLabel.textContent = '';
-      holidayLabel.classList.add('hidden');
-    }
-  }
-
   prevButton.setAttribute('aria-label', 'Vorheriger Tag');
   nextButton.setAttribute('aria-label', 'Nächster Tag');
 
@@ -1249,9 +1195,6 @@ function statusColor(status) {
 }
 
 function isCategoryAvailable(category, date) {
-  // Block all categories on NRW holidays
-  if (getHolidayForDate(date)) return false;
-
   if (category !== 'inspection') return true;
   const weekday = date.getDay();
   return weekday >= 2 && weekday <= 5;
@@ -1400,76 +1343,3 @@ function structuredCloneSafe(value) {
   }
   return JSON.parse(JSON.stringify(value));
 }
-
-      const holidayName = getHolidayForDate(cellDate);
-      const weekday = cellDate.getDay();
-      if (weekday === 0) {
-        button.classList.add('sunday');
-        button.setAttribute('title', (holidayName ? holidayName + ' & Sonntag' : 'Sonntag'));
-      } else if (weekday === 6) {
-        button.classList.add('weekend');
-      }
-
-      if (holidayName) {
-        button.classList.add('holiday');
-        button.setAttribute('title', holidayName);
-      }
-
-
-
-// === Clipboard Job Integration ===
-async function handleClipboardSubmit(event) {
-  event.preventDefault();
-  const form = event.target.closest('form');
-  const data = Object.fromEntries(new FormData(form).entries());
-  data.category = 'clipboard';
-  if (!data.title || data.title.trim() === '') {
-    alert('Bitte einen Titel eingeben.');
-    return;
-  }
-  try {
-    await api.createJob(data);
-    renderClipboard();
-    form.reset();
-  } catch (err) {
-    console.error('Fehler beim Anlegen des Clipboard-Eintrags:', err);
-  }
-}
-
-async function renderClipboard() {
-  const container = document.getElementById('clipboard-list');
-  if (!container) return;
-  container.innerHTML = '';
-  try {
-    const jobs = await api.getJobs();
-    const clips = jobs.filter(j => j.category === 'clipboard');
-    if (clips.length === 0) {
-      container.innerHTML = '<div class="empty">Keine Clipboard-Einträge vorhanden.</div>';
-      return;
-    }
-    clips.forEach(job => {
-      const el = document.createElement('div');
-      el.className = 'clipboard-item';
-      el.innerHTML = `
-        <div class="title">${job.title}</div>
-        <div class="meta">${job.customer || ''} ${job.vehicle || ''}</div>
-        <div class="actions">
-          <button class="delete-btn" data-id="${job.id}">✕</button>
-        </div>`;
-      el.querySelector('.delete-btn').addEventListener('click', async () => {
-        if (!confirm('Eintrag löschen?')) return;
-        await api.deleteJob(job.id);
-        renderClipboard();
-      });
-      container.appendChild(el);
-    });
-  } catch (err) {
-    console.error('Fehler beim Laden der Clipboard-Einträge:', err);
-  }
-}
-
-document.querySelectorAll('[data-action="clipboard-submit"]').forEach(btn => {
-  btn.addEventListener('click', handleClipboardSubmit);
-});
-
-document.addEventListener('DOMContentLoaded', renderClipboard);
